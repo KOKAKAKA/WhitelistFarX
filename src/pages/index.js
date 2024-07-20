@@ -1,7 +1,7 @@
 import React from 'react';
-import KeyGenerator from './KeyGenerator';
-import KeyDisplay from './KeyDisplay';
-
+// In src/pages/YourPage.js or similar
+import KeyGenerator from '../components/KeyGenerator';
+import KeyDisplay from '../components/KeyDisplay';
 function IndexPage() {
     return (
         <div>
