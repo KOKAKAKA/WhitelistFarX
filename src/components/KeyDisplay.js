@@ -20,7 +20,7 @@ const KeyDisplay = () => {
       <ul>
         {keys.map((entry, index) => (
           <li key={index}>
-            {entry.key} - {entry.hwid || 'No HWID'}
+            {entry.key} - {entry.hwid}
           </li>
         ))}
       </ul>
