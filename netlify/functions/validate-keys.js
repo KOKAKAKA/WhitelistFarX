@@ -1,31 +1,17 @@
-const fs = require('fs');
-const path = require('path');
+const { MongoClient } = require('mongodb');
+const MONGODB_URI = process.env.MONGODB_URI;
+const client = new MongoClient(MONGODB_URI, { useNewUrlParser: true, useUnifiedTopology: true });
 
-exports.handler = async (event) => {
-  const { key, hwid } = JSON.parse(event.body);
-  const whitelistPath = path.resolve(__dirname, '../whitelist.json');
-
-  try {
-    const data = fs.readFileSync(whitelistPath);
-    const whitelist = JSON.parse(data);
-
-    const validEntry = whitelist.keys.find(entry => entry.key === key && entry.hwid === hwid);
-
-    if (validEntry) {
-      return {
-        statusCode: 200,
-        body: JSON.stringify({ message: 'Key and HWID are valid' }),
-      };
-    } else {
-      return {
-        statusCode: 401,
-        body: JSON.stringify({ message: 'Invalid key or HWID' }),
-      };
+async function validateKey(key) {
+    try {
+        await client.connect();
+        const db = client.db('whitelist');
+        const collection = db.collection('keys');
+        const result = await collection.findOne({ key });
+        return result ? result.hwid : null;
+    } finally {
+        await client.close();
     }
-  } catch (error) {
-    return {
-      statusCode: 500,
-      body: JSON.stringify({ message: 'Failed to read whitelist' }),
-    };
-  }
-};
+}
+
+module.exports = validateKey;
