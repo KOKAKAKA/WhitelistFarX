@@ -7,9 +7,7 @@ const KeyInput = () => {
 
   const handleInputChange = (e) => setKey(e.target.value);
 
-  const handleSubmit = async (e) => {
-    e.preventDefault();
-
+  const handleSaveKey = async () => {
     try {
       const response = await axios.post('/.netlify/functions/save-key', { key, hwid: 'sample-hwid' });
       setMessage(response.data.message);
@@ -20,16 +18,14 @@ const KeyInput = () => {
 
   return (
     <div>
-      <form onSubmit={handleSubmit}>
-        <input 
-          type="text" 
-          value={key} 
-          onChange={handleInputChange} 
-          placeholder="Enter your key" 
-          required 
-        />
-        <button type="submit">Submit Key</button>
-      </form>
+      <input 
+        type="text" 
+        value={key} 
+        onChange={handleInputChange} 
+        placeholder="Enter your key" 
+        required 
+      />
+      <button onClick={handleSaveKey}>Save Key</button>
       {message && <p>{message}</p>}
     </div>
   );
