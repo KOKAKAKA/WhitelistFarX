@@ -4,7 +4,7 @@ function KeyGenerator() {
     const handleClick = async () => {
         const response = await fetch('/.netlify/functions/get-keys?number=1', { method: 'POST' });
         const result = await response.json();
-        console.log(result); // Handle result
+        console.log(result); // Log the result to verify key generation
     };
 
     return (
