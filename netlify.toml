@@ -1,4 +1,3 @@
 [build]
-  base = "/"  # Root directory
-  publish = "public"  # Gatsby's output directory
-  command = "npm run build"
+  functions = "netlify/functions"
+  publish = "public"
