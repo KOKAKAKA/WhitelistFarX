@@ -18,7 +18,7 @@ exports.handler = async (event) => {
       };
     } else {
       return {
-        statusCode: 400,
+        statusCode: 401,
         body: JSON.stringify({ message: 'Invalid key or HWID' }),
       };
     }
