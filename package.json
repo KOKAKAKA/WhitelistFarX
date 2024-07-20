@@ -10,7 +10,7 @@
   },
   "dependencies": {
     "gatsby": "^5.13.7",
-    "gatsby-plugin-react-helmet": "^7.0.0",
+    "gatsby-plugin-react-helmet": "^6.14.0",  // Adjust to a valid version
     "react": "^18.0.0",
     "react-dom": "^18.0.0"
   },
