@@ -15,3 +15,27 @@ async function validateKey(key) {
 }
 
 module.exports = validateKey;
+
+// API handler
+exports.handler = async (event, context) => {
+    if (event.httpMethod === 'POST') {
+        const { key } = JSON.parse(event.body);
+        try {
+            const hwid = await validateKey(key);
+            return {
+                statusCode: 200,
+                body: JSON.stringify({ hwid })
+            };
+        } catch (error) {
+            return {
+                statusCode: 500,
+                body: JSON.stringify({ error: error.message })
+            };
+        }
+    } else {
+        return {
+            statusCode: 405,
+            body: JSON.stringify({ error: 'Method not allowed' })
+        };
+    }
+};
