@@ -1,4 +1,3 @@
-const fetch = require('node-fetch');
 const { Octokit } = require('@octokit/rest');
 const PAT = process.env.PAT;
 const octokit = new Octokit({ auth: PAT });
