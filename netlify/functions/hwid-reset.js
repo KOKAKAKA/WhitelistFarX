@@ -1,38 +1,19 @@
-const fs = require('fs');
-const path = require('path');
+const { MongoClient } = require('mongodb');
+const MONGODB_URI = process.env.MONGODB_URI;
+const client = new MongoClient(MONGODB_URI, { useNewUrlParser: true, useUnifiedTopology: true });
 
-exports.handler = async (event) => {
-  const { key } = JSON.parse(event.body);
-  const whitelistPath = path.resolve(__dirname, '../whitelist.json');
-
-  try {
-    const data = fs.readFileSync(whitelistPath);
-    let whitelist = JSON.parse(data);
-
-    // Find the key entry
-    const entry = whitelist.keys.find(entry => entry.key === key);
-
-    if (entry) {
-      // Reset HWID
-      entry.hwid = "";
-      
-      // Write changes back to file
-      fs.writeFileSync(whitelistPath, JSON.stringify(whitelist, null, 2));
-      
-      return {
-        statusCode: 200,
-        body: JSON.stringify({ message: 'HWID reset successfully' }),
-      };
-    } else {
-      return {
-        statusCode: 404,
-        body: JSON.stringify({ message: 'Key not found' }),
-      };
+async function resetHWID(key) {
+    try {
+        await client.connect();
+        const db = client.db('whitelist');
+        const collection = db.collection('keys');
+        await collection.updateOne(
+            { key },
+            { $set: { hwid: '' } }
+        );
+    } finally {
+        await client.close();
     }
-  } catch (error) {
-    return {
-      statusCode: 500,
-      body: JSON.stringify({ message: 'Failed to read or update whitelist' }),
-    };
-  }
-};
+}
+
+module.exports = resetHWID;
