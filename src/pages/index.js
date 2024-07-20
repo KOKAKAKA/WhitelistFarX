@@ -1,13 +1,15 @@
 import React from 'react';
-import KeyGenerator from '../components/KeyGenerator';
-import KeyDisplay from '../components/KeyDisplay';
+import KeyGenerator from './KeyGenerator';
+import KeyDisplay from './KeyDisplay';
 
-const IndexPage = () => (
-  <div>
-    <h1>Whitelist System</h1>
-    <KeyGenerator />
-    <KeyDisplay />
-  </div>
-);
+function IndexPage() {
+    return (
+        <div>
+            <h1>Whitelist Management</h1>
+            <KeyGenerator />
+            <KeyDisplay />
+        </div>
+    );
+}
 
 export default IndexPage;
