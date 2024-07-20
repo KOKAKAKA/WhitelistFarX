@@ -1,0 +1,31 @@
+name: Build and Deploy
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+    branches:
+      - main
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v2
+
+    - name: Set up Node.js
+      uses: actions/setup-node@v3
+      with:
+        node-version: '18' # Adjust to your Node.js version
+
+    - name: Install dependencies
+      run: npm install --legacy-peer-deps
+
+    - name: Build project
+      run: npm run build
+
+    - name: Deploy
+      run: npm run deploy # Adjust if you have a specific deployment script
