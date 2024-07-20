@@ -1,31 +1,19 @@
 import React, { useEffect, useState } from 'react';
-import axios from 'axios';
 
-const KeyDisplay = () => {
-  const [keys, setKeys] = useState([]);
+function KeyDisplay() {
+    const [key, setKey] = useState('');
 
-  useEffect(() => {
-    axios.get('/.netlify/functions/get-keys')
-      .then(response => {
-        setKeys(response.data.keys);
-      })
-      .catch(error => {
-        console.error("Error fetching keys:", error);
-      });
-  }, []);
+    useEffect(() => {
+        async function fetchKey() {
+            const response = await fetch('/api/get-key');
+            const result = await response.json();
+            setKey(result.key);
+        }
 
-  return (
-    <div>
-      <h2>Key List</h2>
-      <ul>
-        {keys.map((entry, index) => (
-          <li key={index}>
-            {entry.key} - {entry.hwid}
-          </li>
-        ))}
-      </ul>
-    </div>
-  );
-};
+        fetchKey();
+    }, []);
+
+    return <div>Your Key: {key}</div>;
+}
 
 export default KeyDisplay;
