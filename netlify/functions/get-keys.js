@@ -2,7 +2,7 @@ const fs = require('fs');
 const path = require('path');
 
 exports.handler = async () => {
-  const whitelistPath = path.resolve(__dirname, '../whitelist.json');
+  const whitelistPath = path.resolve(__dirname, '../../whitelist.json');
 
   try {
     const data = fs.readFileSync(whitelistPath, 'utf-8');
