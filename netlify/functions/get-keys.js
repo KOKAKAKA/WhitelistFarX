@@ -11,11 +11,12 @@ async function getKeys(numberOfKeys) {
     for (let i = 0; i < numberOfKeys; i++) {
         const key = generateKey();
         const hwid = '';
+        console.log(`Generated key: ${key}`); // Add logging
         await saveKey(key, hwid);
         newKeys[key] = hwid;
     }
     await updateWhitelist(newKeys);
-    return newKeys; // Return the new keys
+    return newKeys;
 }
 
 // API handler
@@ -23,12 +24,12 @@ module.exports = async (req, res) => {
     if (req.method === 'POST') {
         const numberOfKeys = parseInt(req.query.number, 10) || 1;
         try {
-            console.log(`Generating ${numberOfKeys} keys...`);
+            console.log(`Generating ${numberOfKeys} keys...`); // Add logging
             const newKeys = await getKeys(numberOfKeys);
-            console.log('Generated keys:', newKeys);
+            console.log('Generated keys:', newKeys); // Add logging
             res.status(200).json({ keys: newKeys });
         } catch (error) {
-            console.error('Error generating keys:', error);
+            console.error('Error generating keys:', error); // Add logging
             res.status(500).json({ error: error.message });
         }
     } else {
