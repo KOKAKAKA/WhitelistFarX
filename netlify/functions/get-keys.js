@@ -19,16 +19,25 @@ async function getKeys(numberOfKeys) {
 }
 
 // API handler
-module.exports = async (req, res) => {
-    if (req.method === 'POST') {
-        const numberOfKeys = parseInt(req.query.number, 10) || 1;
+exports.handler = async (event, context) => {
+    if (event.httpMethod === 'POST') {
+        const numberOfKeys = parseInt(event.queryStringParameters.number, 10) || 1;
         try {
             const newKeys = await getKeys(numberOfKeys);
-            res.status(200).json({ keys: newKeys });
+            return {
+                statusCode: 200,
+                body: JSON.stringify({ keys: newKeys })
+            };
         } catch (error) {
-            res.status(500).json({ error: error.message });
+            return {
+                statusCode: 500,
+                body: JSON.stringify({ error: error.message })
+            };
         }
     } else {
-        res.status(405).json({ error: 'Method not allowed' });
+        return {
+            statusCode: 405,
+            body: JSON.stringify({ error: 'Method not allowed' })
+        };
     }
 };
