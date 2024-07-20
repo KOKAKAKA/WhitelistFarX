@@ -1,42 +1,40 @@
+// netlify/functions/save-key.js
 const { MongoClient } = require('mongodb');
 
-exports.handler = async (event) => {
-  const { key, hwid } = JSON.parse(event.body);
-  const uri = process.env.MONGODB_URI;
-  
-  if (!uri) {
-    return {
-      statusCode: 500,
-      body: JSON.stringify({ message: 'Missing MongoDB connection string' }),
-    };
-  }
+// Replace this with your actual MongoDB connection string
+const uri = process.env.MONGODB_URI;
 
-  const client = new MongoClient(uri, { useNewUrlParser: true, useUnifiedTopology: true });
+exports.handler = async function(event) {
+  if (event.httpMethod === 'POST') {
+    try {
+      const client = new MongoClient(uri, { useNewUrlParser: true, useUnifiedTopology: true });
+      await client.connect();
 
-  try {
-    await client.connect();
-    const database = client.db('whitelist');
-    const collection = database.collection('keys');
+      const data = JSON.parse(event.body);
 
-    const existingEntry = await collection.findOne({ key });
-    if (existingEntry) {
+      // Replace 'yourDatabase' and 'yourCollection' with your actual DB and collection names
+      const db = client.db('yourDatabase');
+      const collection = db.collection('yourCollection');
+
+      await collection.insertOne(data);
+
+      await client.close();
+
       return {
-        statusCode: 400,
-        body: JSON.stringify({ message: 'Key already exists' }),
+        statusCode: 200,
+        body: JSON.stringify({ message: 'Data saved successfully' })
+      };
+    } catch (error) {
+      console.error('Error saving data:', error);
+      return {
+        statusCode: 500,
+        body: JSON.stringify({ error: 'Failed to save data' })
       };
     }
-
-    await collection.insertOne({ key, hwid });
-    return {
-      statusCode: 200,
-      body: JSON.stringify({ message: 'Key saved successfully' }),
-    };
-  } catch (error) {
-    return {
-      statusCode: 500,
-      body: JSON.stringify({ message: 'Failed to save key', error: error.message }),
-    };
-  } finally {
-    await client.close();
   }
+
+  return {
+    statusCode: 405,
+    body: JSON.stringify({ error: 'Method not allowed' })
+  };
 };
