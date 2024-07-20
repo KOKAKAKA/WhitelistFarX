@@ -1,20 +1,33 @@
-const fs = require('fs');
-const path = require('path');
+const { MongoClient } = require('mongodb');
 
 exports.handler = async () => {
-  const whitelistPath = path.resolve(__dirname, '../../whitelist.json');
+  const uri = process.env.MONGODB_URI;
+
+  if (!uri) {
+    return {
+      statusCode: 500,
+      body: JSON.stringify({ message: 'Missing MongoDB connection string' }),
+    };
+  }
+
+  const client = new MongoClient(uri, { useNewUrlParser: true, useUnifiedTopology: true });
 
   try {
-    const data = fs.readFileSync(whitelistPath, 'utf-8');
-    const whitelist = JSON.parse(data);
+    await client.connect();
+    const database = client.db('whitelist');
+    const collection = database.collection('keys');
+
+    const keys = await collection.find({}).toArray();
     return {
       statusCode: 200,
-      body: JSON.stringify({ keys: whitelist.keys }),
+      body: JSON.stringify({ keys }),
     };
   } catch (error) {
     return {
       statusCode: 500,
-      body: JSON.stringify({ message: 'Failed to read whitelist' }),
+      body: JSON.stringify({ message: 'Failed to fetch keys', error: error.message }),
     };
+  } finally {
+    await client.close();
   }
 };
