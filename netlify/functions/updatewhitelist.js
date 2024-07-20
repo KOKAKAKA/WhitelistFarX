@@ -25,6 +25,7 @@ exports.handler = async (event) => {
     };
   }
 
+  // Add the HWID to the existing key or add a new entry
   whitelist.keys.push({ key, hwid });
 
   try {
