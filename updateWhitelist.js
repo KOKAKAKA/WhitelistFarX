@@ -1,4 +1,4 @@
-const fs = require('fs');
+aconst fs = require('fs');
 const path = require('path');
 
 const whitelistFile = path.join(__dirname, 'whitelist.json');
