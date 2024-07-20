@@ -1,0 +1,11 @@
+{
+  "name": "whitelist-system",
+  "version": "1.0.0",
+  "scripts": {
+    "start": "node index.js",
+    "build": "echo 'No build step'"
+  },
+  "dependencies": {
+    "express": "^4.17.1"
+  }
+}
