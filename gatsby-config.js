@@ -1,11 +1,8 @@
 module.exports = {
   siteMetadata: {
-    title: "Whitelist FarX",
-    description: "A site to manage whitelisting with keys and HWIDs.",
-    author: "@yourusername",
+    title: "WhitelistFarX",
   },
   plugins: [
-    `gatsby-plugin-react-helmet`,
-    // Add other plugins as needed
+    "gatsby-plugin-react-helmet",
   ],
 };
