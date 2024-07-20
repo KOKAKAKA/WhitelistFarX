@@ -1,3 +1,4 @@
 [build]
-  base = "/"  # This should be the root directory if your project files are there
-  publish = "public"  # Gatsby's build output directory
+  base = "/"  # Root directory
+  publish = "public"  # Gatsby's output directory
+  command = "npm run build"
