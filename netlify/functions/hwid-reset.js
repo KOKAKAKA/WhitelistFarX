@@ -17,3 +17,27 @@ async function resetHWID(key) {
 }
 
 module.exports = resetHWID;
+
+// API handler
+exports.handler = async (event, context) => {
+    if (event.httpMethod === 'POST') {
+        const { key } = JSON.parse(event.body);
+        try {
+            await resetHWID(key);
+            return {
+                statusCode: 200,
+                body: JSON.stringify({ message: 'HWID reset successfully' })
+            };
+        } catch (error) {
+            return {
+                statusCode: 500,
+                body: JSON.stringify({ error: error.message })
+            };
+        }
+    } else {
+        return {
+            statusCode: 405,
+            body: JSON.stringify({ error: 'Method not allowed' })
+        };
+    }
+};
