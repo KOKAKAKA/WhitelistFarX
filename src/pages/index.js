@@ -1,12 +1,11 @@
 import React from 'react';
 import KeyGenerator from '../components/KeyGenerator';
-import DisplayKeys from '../components/DisplayKeys';
-
+import KeyDisplay from '../components/KeyDisplay';
 const IndexPage = () => (
   <div>
     <h1>Whitelist System</h1>
     <KeyGenerator />
-    <DisplayKeys />
+    <KeyDisplay />
   </div>
 );
 
