@@ -5,7 +5,7 @@ exports.handler = async () => {
   const whitelistPath = path.resolve(__dirname, '../whitelist.json');
 
   try {
-    const data = fs.readFileSync(whitelistPath);
+    const data = fs.readFileSync(whitelistPath, 'utf-8');
     const whitelist = JSON.parse(data);
     return {
       statusCode: 200,
