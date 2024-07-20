@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import axios from 'axios';
 
 const generateRandomKey = () => {
   const characters = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';
@@ -13,13 +14,24 @@ const generateRandomKey = () => {
 const KeyGenerator = () => {
   const [key, setKey] = useState('');
 
-  const handleGenerateKey = () => {
+  const handleGenerateKey = async () => {
     const newKey = generateRandomKey();
     setKey(newKey);
-    navigator.clipboard.writeText(newKey).then(
-      () => alert('Key copied to clipboard!'),
-      (err) => alert('Failed to copy key: ' + err)
-    );
+
+    try {
+      const response = await axios.post('/.netlify/functions/save-key', {
+        key: newKey,
+        hwid: '' // Assuming HWID is initially empty
+      });
+      if (response.status === 200) {
+        alert('Key saved and copied to clipboard!');
+        navigator.clipboard.writeText(newKey);
+      } else {
+        alert('Failed to save key: ' + response.data.message);
+      }
+    } catch (error) {
+      alert('Error saving key: ' + error.message);
+    }
   };
 
   return (
