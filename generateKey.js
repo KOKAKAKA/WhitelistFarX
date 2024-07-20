@@ -1,26 +1,30 @@
-const fs = require('fs');
-const path = require('path');
 const crypto = require('crypto');
+const fs = require('fs');
+const path = './whitelist.json';
+let whitelist;
 
-const whitelistFile = path.join(__dirname, 'whitelist.json');
-
-function generateRandomKey(length = 16) {
-    return crypto.randomBytes(length).toString('hex');
+try {
+  whitelist = require(path);
+} catch (e) {
+  whitelist = {}; // Initialize if file doesn't exist
 }
 
-function addKeyToWhitelist(key) {
-    const data = JSON.parse(fs.readFileSync(whitelistFile, 'utf8'));
+exports.handler = async (event) => {
+  if (event.httpMethod !== 'POST') {
+    return {
+      statusCode: 405,
+      body: JSON.stringify({ message: 'Method not allowed' }),
+    };
+  }
 
-    if (data[key]) {
-        console.log('Key already exists.');
-        return;
-    }
+  const key = crypto.randomBytes(16).toString('hex'); // Generate a random 32-character hexadecimal key
 
-    data[key] = [];
-    fs.writeFileSync(whitelistFile, JSON.stringify(data, null, 2));
-    console.log(`Key ${key} added to whitelist.`);
-}
+  whitelist[key] = []; // Initialize the key with an empty array
 
-const newKey = generateRandomKey();
-addKeyToWhitelist(newKey);
-console.log(`Generated key: ${newKey}`);
+  fs.writeFileSync(path, JSON.stringify(whitelist, null, 2));
+
+  return {
+    statusCode: 200,
+    body: JSON.stringify({ message: `Key generated: ${key}` }),
+  };
+};
