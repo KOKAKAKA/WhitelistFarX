@@ -1,7 +1,3 @@
 [build]
-  base = "/"  # Set this to the correct base directory if needed
-  publish = "public"  # Ensure this matches the Gatsby build output directory
-  functions = "netlify/functions"
-
-[context.production.environment]
-  NODE_VERSION = "16"  # Ensure this matches your Node.js version
+  base = "/"  # This should be the root directory if your project files are there
+  publish = "public"  # Gatsby's build output directory
