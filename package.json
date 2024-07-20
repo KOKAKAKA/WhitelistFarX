@@ -18,6 +18,9 @@
     "gatsby-cli": "^5.13.3",
     "jest": "^29.7.0"
   },
+  "dependencies": {
+  "mongodb": "^4.3.0"
+  },
   "author": "KOKAKAKA",
   "license": "MIT",
   "engines": {
