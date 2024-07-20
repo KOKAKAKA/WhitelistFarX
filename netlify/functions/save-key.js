@@ -1,25 +1,32 @@
-const fs = require('fs');
-const path = require('path');
+const { MongoClient } = require('mongodb');
 
 exports.handler = async (event) => {
   const { key, hwid } = JSON.parse(event.body);
-  const whitelistPath = path.resolve(__dirname, '../../whitelist.json');
+  const uri = process.env.MONGODB_URI;
+  
+  if (!uri) {
+    return {
+      statusCode: 500,
+      body: JSON.stringify({ message: 'Missing MongoDB connection string' }),
+    };
+  }
+
+  const client = new MongoClient(uri, { useNewUrlParser: true, useUnifiedTopology: true });
 
   try {
-    const data = fs.readFileSync(whitelistPath, 'utf-8');
-    const whitelist = JSON.parse(data);
+    await client.connect();
+    const database = client.db('whitelist');
+    const collection = database.collection('keys');
 
-    if (whitelist.keys.find(entry => entry.key === key)) {
+    const existingEntry = await collection.findOne({ key });
+    if (existingEntry) {
       return {
         statusCode: 400,
         body: JSON.stringify({ message: 'Key already exists' }),
       };
     }
 
-    whitelist.keys.push({ key, hwid });
-
-    fs.writeFileSync(whitelistPath, JSON.stringify(whitelist, null, 2));
-
+    await collection.insertOne({ key, hwid });
     return {
       statusCode: 200,
       body: JSON.stringify({ message: 'Key saved successfully' }),
@@ -27,7 +34,9 @@ exports.handler = async (event) => {
   } catch (error) {
     return {
       statusCode: 500,
-      body: JSON.stringify({ message: 'Failed to save key' }),
+      body: JSON.stringify({ message: 'Failed to save key', error: error.message }),
     };
+  } finally {
+    await client.close();
   }
 };
