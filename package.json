@@ -17,8 +17,5 @@
   },
   "devDependencies": {
     "gatsby-cli": "^4.0.0"
-  },
-  "netlify": {
-    "functions": "netlify/functions"
   }
 }
