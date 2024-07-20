@@ -1,3 +1,5 @@
+// netlify/functions/get-keys.js
+
 const crypto = require('crypto');
 const saveKey = require('./save-key');
 const updateWhitelist = require('./updatewhitelist');
@@ -19,25 +21,19 @@ async function getKeys(numberOfKeys) {
 }
 
 // API handler
-exports.handler = async (event, context) => {
-    if (event.httpMethod === 'POST') {
-        const numberOfKeys = parseInt(event.queryStringParameters.number, 10) || 1;
+module.exports = async (req, res) => {
+    if (req.method === 'POST') {
+        const numberOfKeys = parseInt(req.query.number, 10) || 1;
         try {
+            console.log(`Generating ${numberOfKeys} keys`); // Log number of keys
             const newKeys = await getKeys(numberOfKeys);
-            return {
-                statusCode: 200,
-                body: JSON.stringify({ keys: newKeys })
-            };
+            console.log('Generated keys:', newKeys); // Log generated keys
+            res.status(200).json({ keys: newKeys });
         } catch (error) {
-            return {
-                statusCode: 500,
-                body: JSON.stringify({ error: error.message })
-            };
+            console.error('Error generating keys:', error); // Log errors
+            res.status(500).json({ error: error.message });
         }
     } else {
-        return {
-            statusCode: 405,
-            body: JSON.stringify({ error: 'Method not allowed' })
-        };
+        res.status(405).json({ error: 'Method not allowed' });
     }
 };
