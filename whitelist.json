@@ -1,0 +1,6 @@
+{
+  "keys": [
+    { "key": "example-key-1", "hwid": "example-hwid-1" },
+    { "key": "example-key-2", "hwid": "example-hwid-2" }
+  ]
+}
