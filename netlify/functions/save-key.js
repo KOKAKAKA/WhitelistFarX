@@ -1,40 +1,20 @@
-// netlify/functions/save-key.js
 const { MongoClient } = require('mongodb');
+const MONGODB_URI = process.env.MONGODB_URI;
+const client = new MongoClient(MONGODB_URI, { useNewUrlParser: true, useUnifiedTopology: true });
 
-// Replace this with your actual MongoDB connection string
-const uri = process.env.MONGODB_URI;
-
-exports.handler = async function(event) {
-  if (event.httpMethod === 'POST') {
+async function saveKey(key, hwid) {
     try {
-      const client = new MongoClient(uri, { useNewUrlParser: true, useUnifiedTopology: true });
-      await client.connect();
-
-      const data = JSON.parse(event.body);
-
-      // Replace 'yourDatabase' and 'yourCollection' with your actual DB and collection names
-      const db = client.db('yourDatabase');
-      const collection = db.collection('yourCollection');
-
-      await collection.insertOne(data);
-
-      await client.close();
-
-      return {
-        statusCode: 200,
-        body: JSON.stringify({ message: 'Data saved successfully' })
-      };
-    } catch (error) {
-      console.error('Error saving data:', error);
-      return {
-        statusCode: 500,
-        body: JSON.stringify({ error: 'Failed to save data' })
-      };
+        await client.connect();
+        const db = client.db('whitelist');
+        const collection = db.collection('keys');
+        await collection.updateOne(
+            { key },
+            { $set: { hwid } },
+            { upsert: true }
+        );
+    } finally {
+        await client.close();
     }
-  }
+}
 
-  return {
-    statusCode: 405,
-    body: JSON.stringify({ error: 'Method not allowed' })
-  };
-};
+module.exports = saveKey;
