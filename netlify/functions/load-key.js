@@ -15,3 +15,26 @@ async function loadKeys() {
 }
 
 module.exports = loadKeys;
+
+// API handler
+exports.handler = async (event, context) => {
+    if (event.httpMethod === 'GET') {
+        try {
+            const keys = await loadKeys();
+            return {
+                statusCode: 200,
+                body: JSON.stringify(keys)
+            };
+        } catch (error) {
+            return {
+                statusCode: 500,
+                body: JSON.stringify({ error: error.message })
+            };
+        }
+    } else {
+        return {
+            statusCode: 405,
+            body: JSON.stringify({ error: 'Method not allowed' })
+        };
+    }
+};
