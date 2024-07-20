@@ -14,7 +14,7 @@
     "gatsby-plugin-netlify": "^5.12.0",
     "react": "^18.2.0",
     "react-dom": "^18.2.0",
-    "@octokit/rest": "^2.4.0"  // Add this line
+    "@octokit/rest": "^2.4.0"
   },
   "devDependencies": {
     "gatsby-cli": "^5.13.3",
