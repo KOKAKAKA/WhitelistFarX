@@ -1,3 +1,3 @@
 [build]
-  publish = "public"
-  functions = "netlify/functions"
+  publish = "public"          # Ensure this is the directory where Gatsby outputs your build files
+  functions = "netlify/functions" # Ensure this is the directory where your Netlify functions are located
