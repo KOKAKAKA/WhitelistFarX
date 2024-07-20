@@ -4,7 +4,7 @@ function KeyGenerator() {
     const handleClick = async () => {
         const response = await fetch('/api/get-keys?number=1', { method: 'POST' });
         const result = await response.json();
-        // Handle result
+        console.log(result); // Handle result
     };
 
     return (
