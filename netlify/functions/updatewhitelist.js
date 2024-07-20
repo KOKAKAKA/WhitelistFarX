@@ -2,6 +2,8 @@ const fs = require('fs');
 const path = require('path');
 
 exports.handler = async (event) => {
+  console.log('Received event:', JSON.stringify(event, null, 2)); // Log the event data
+
   const { key, hwid } = JSON.parse(event.body);
 
   const whitelistPath = path.resolve(__dirname, '../whitelist.json');
@@ -11,21 +13,21 @@ exports.handler = async (event) => {
     const data = fs.readFileSync(whitelistPath);
     whitelist = JSON.parse(data);
   } catch (error) {
+    console.error('Failed to read whitelist:', error); // Log error
     return {
       statusCode: 500,
       body: JSON.stringify({ message: 'Failed to read whitelist' }),
     };
   }
 
-  const existingEntry = whitelist.keys.find(entry => entry.key === key);
+  const existingEntry = whitelist.keys.find(entry => entry.hwid === hwid);
   if (existingEntry) {
     return {
       statusCode: 400,
-      body: JSON.stringify({ message: 'Key already exists' }),
+      body: JSON.stringify({ message: 'HWID already exists' }),
     };
   }
 
-  // Add the HWID to the existing key or add a new entry
   whitelist.keys.push({ key, hwid });
 
   try {
@@ -35,6 +37,7 @@ exports.handler = async (event) => {
       body: JSON.stringify({ message: 'Whitelist updated successfully' }),
     };
   } catch (error) {
+    console.error('Failed to update whitelist:', error); // Log error
     return {
       statusCode: 500,
       body: JSON.stringify({ message: 'Failed to update whitelist' }),
