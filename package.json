@@ -9,9 +9,9 @@
     "test": "jest"
   },
   "dependencies": {
-    "gatsby": "^5.13.0",
+    "gatsby": "^5.13.7",  // Ensure compatibility with other packages
     "gatsby-plugin-react-helmet": "^6.13.1",
-    "gatsby-plugin-netlify": "^5.13.0",
+    "gatsby-plugin-netlify": "^3.8.1",  // Correct version
     "react": "^18.2.0",
     "react-dom": "^18.2.0",
     "@octokit/rest": "^21.0.1"
