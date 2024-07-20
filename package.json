@@ -11,7 +11,7 @@
   "dependencies": {
     "gatsby": "^5.13.0",
     "gatsby-plugin-react-helmet": "^6.13.1",
-    "gatsby-plugin-netlify": "^5.12.0",  // Update to the latest version
+    "gatsby-plugin-netlify": "^5.12.0",
     "react": "^18.2.0",
     "react-dom": "^18.2.0"
   },
