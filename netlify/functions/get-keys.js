@@ -1,5 +1,3 @@
-// netlify/functions/get-keys.js
-
 const crypto = require('crypto');
 const saveKey = require('./save-key');
 const updateWhitelist = require('./updatewhitelist');
@@ -25,12 +23,12 @@ module.exports = async (req, res) => {
     if (req.method === 'POST') {
         const numberOfKeys = parseInt(req.query.number, 10) || 1;
         try {
-            console.log(`Generating ${numberOfKeys} keys`); // Log number of keys
+            console.log(`Generating ${numberOfKeys} keys...`);
             const newKeys = await getKeys(numberOfKeys);
-            console.log('Generated keys:', newKeys); // Log generated keys
+            console.log('Generated keys:', newKeys);
             res.status(200).json({ keys: newKeys });
         } catch (error) {
-            console.error('Error generating keys:', error); // Log errors
+            console.error('Error generating keys:', error);
             res.status(500).json({ error: error.message });
         }
     } else {
