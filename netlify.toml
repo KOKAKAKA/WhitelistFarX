@@ -1,4 +1,0 @@
-[build]
-  publish = "public"          # Directory where Gatsby outputs the built files
-  functions = "netlify/functions" # Directory for Netlify functions
-  command = "npm run build"   # Command to build your project
