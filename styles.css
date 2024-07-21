@@ -1,0 +1,38 @@
+html, body {
+  height: 100%;
+  width: 100%;
+  margin: 0;
+  font-family: 'Arial', sans-serif;
+  background: url('path/to/your/background/image.jpg') no-repeat center center fixed; /* Adjust as needed */
+  background-size: cover;
+  color: #fff; /* Light text color for contrast */
+}
+
+h1, h2 {
+  color: #0f0; /* Example color for headings */
+}
+
+a {
+  color: #00f; /* Example color for links */
+}
+
+.tab-content {
+  display: none;
+}
+
+.tab-buttons {
+  margin: 20px 0;
+}
+
+.tab-buttons button {
+  background-color: #333;
+  color: #fff;
+  border: none;
+  padding: 10px;
+  cursor: pointer;
+  margin: 0 5px;
+}
+
+.tab-buttons button.active {
+  background-color: #555;
+}
