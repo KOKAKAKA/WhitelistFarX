@@ -1,0 +1,122 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Galaxy Themed Website</title>
+    <link rel="icon" href="galaxy.ico" type="image/x-icon">
+    <link rel="stylesheet" href="styles.css"> <!-- Link to your Galaxy theme CSS -->
+</head>
+<body>
+    <header>
+        <h1>Welcome to the Galaxy Themed Website</h1>
+        <nav>
+            <a href="/">Home</a> | <a href="/about">About</a> | <a href="/contact">Contact</a>
+        </nav>
+    </header>
+
+    <main>
+        <div class="tab-buttons">
+            <button onclick="showTab('keyStored')">KeyStored</button>
+            <button onclick="showTab('hwidStored')">HwidStored</button>
+            <button onclick="generateKey()">Generate Key</button>
+        </div>
+
+        <div id="keyStored" class="tab-content">
+            <h2>Stored Keys</h2>
+            <p id="keyList">Loading...</p>
+        </div>
+
+        <div id="hwidStored" class="tab-content">
+            <h2>Stored HWIDs</h2>
+            <p id="hwidList">Loading...</p>
+        </div>
+    </main>
+
+    <footer>
+        <p>&copy; 2024 Galaxy Themed Website</p>
+    </footer>
+
+    <script>
+        // Function to show the selected tab
+        function showTab(tabId) {
+            document.querySelectorAll('.tab-content').forEach(tab => {
+                tab.style.display = 'none';
+            });
+            document.getElementById(tabId).style.display = 'block';
+
+            // Update active button state
+            document.querySelectorAll('.tab-buttons button').forEach(button => {
+                button.classList.remove('active');
+            });
+            document.querySelector(`.tab-buttons button[onclick="showTab('${tabId}')"]`).classList.add('active');
+        }
+
+        // Show the default tab
+        showTab('keyStored');
+
+        // Function to fetch and display keys
+        async function fetchKeys() {
+            try {
+                const response = await fetch('/whitelist');
+                if (response.ok) {
+                    const data = await response.json();
+                    const keyList = document.getElementById('keyList');
+                    const keyData = Object.keys(data).map(key => `${key}: ${data[key].Key}`).join('<br>');
+                    keyList.innerHTML = keyData || 'No keys found.';
+                } else {
+                    document.getElementById('keyList').innerText = 'Failed to load keys.';
+                }
+            } catch (error) {
+                document.getElementById('keyList').innerText = 'Error loading keys.';
+            }
+        }
+
+        // Function to fetch and display HWIDs
+        async function fetchHWIDs() {
+            try {
+                const response = await fetch('/whitelist');
+                if (response.ok) {
+                    const data = await response.json();
+                    const hwidList = document.getElementById('hwidList');
+                    const hwidData = Object.keys(data).map(key => `${key}: ${data[key].Hwid}`).join('<br>');
+                    hwidList.innerHTML = hwidData || 'No HWIDs found.';
+                } else {
+                    document.getElementById('hwidList').innerText = 'Failed to load HWIDs.';
+                }
+            } catch (error) {
+                document.getElementById('hwidList').innerText = 'Error loading HWIDs.';
+            }
+        }
+
+        // Function to generate a new key
+        async function generateKey() {
+            try {
+                const response = await fetch('/generate-key', {
+                    method: 'POST'
+                });
+                if (response.ok) {
+                    const data = await response.json();
+                    alert(`Generated Key: ${data.key}`);
+                    fetchKeys(); // Refresh the key list
+                } else {
+                    alert('Failed to generate key.');
+                }
+            } catch (error) {
+                alert('Error generating key.');
+            }
+        }
+
+        // Fetch data on tab change
+        document.querySelectorAll('.tab-buttons button').forEach(button => {
+            button.addEventListener('click', function() {
+                if (this.textContent === 'KeyStored') {
+                    fetchKeys();
+                } else if (this.textContent === 'HwidStored') {
+                    fetchHWIDs();
+                }
+            });
+        });
+    </script>
+</body>
+</html>
