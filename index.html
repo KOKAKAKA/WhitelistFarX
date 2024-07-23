@@ -3,13 +3,13 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Galaxy Themed Website</title>
+    <title>Synthia Hub</title>
     <link rel="icon" href="galaxy.ico" type="image/x-icon">
-    <link rel="stylesheet" href="styles.css"> <!-- Link to your Galaxy theme CSS -->
+    <link rel="stylesheet" href="style.css">
 </head>
 <body>
     <header>
-        <h1>Welcome to the Galaxy Themed Website</h1>
+        <h1>Welcome to Synthia Hub</h1>
         <nav>
             <a href="/">Home</a> | <a href="/about">About</a> | <a href="/contact">Contact</a>
         </nav>
@@ -17,9 +17,13 @@
 
     <main>
         <div class="tab-buttons">
-            <button onclick="showTab('keyStored')">KeyStored</button>
-            <button onclick="showTab('hwidStored')">HwidStored</button>
-            <button onclick="generateKey()">Generate Key</button>
+            <button onclick="showTab('keyStored')">Key Stored</button>
+            <button onclick="showTab('hwidStored')">HWID Stored</button>
+        </div>
+
+        <div class="tab-buttons centered">
+            <button class="generate" onclick="generateKey()">Generate Key</button>
+            <button class="generate" onclick="resetHwid()">Reset HWID</button>
         </div>
 
         <div id="keyStored" class="tab-content">
@@ -34,7 +38,7 @@
     </main>
 
     <footer>
-        <p>&copy; 2024 Galaxy Themed Website</p>
+        <p>&copy; 2024 Synthia Hub</p>
     </footer>
 
     <script>
@@ -55,68 +59,61 @@
         // Show the default tab
         showTab('keyStored');
 
-        // Function to fetch and display keys
-        async function fetchKeys() {
+        // Function to generate a new key
+        async function generateKey() {
             try {
-                const response = await fetch('/whitelist');
-                if (response.ok) {
-                    const data = await response.json();
-                    const keyList = document.getElementById('keyList');
-                    const keyData = Object.keys(data).map(key => `${key}: ${data[key].Key}`).join('<br>');
-                    keyList.innerHTML = keyData || 'No keys found.';
+                const response = await fetch('/generate-key', { method: 'POST' });
+                const result = await response.json();
+                if (result.success) {
+                    alert(`New Key Generated: ${result.key}`);
+                    fetchKeysAndHwids(); // Refresh keys and HWIDs
                 } else {
-                    document.getElementById('keyList').innerText = 'Failed to load keys.';
+                    alert('Failed to generate key');
                 }
             } catch (error) {
-                document.getElementById('keyList').innerText = 'Error loading keys.';
+                alert('Error generating key');
             }
         }
 
-        // Function to fetch and display HWIDs
-        async function fetchHWIDs() {
+        // Function to reset HWID
+        async function resetHwid() {
+            const key = prompt('Enter the key to reset HWID:');
             try {
-                const response = await fetch('/whitelist');
+                const response = await fetch('/reset-hwid', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ key })
+                });
+                const result = await response.json();
+                alert(result.message);
+                fetchKeysAndHwids(); // Refresh keys and HWIDs
+            } catch (error) {
+                alert('Error resetting HWID');
+            }
+        }
+
+        // Function to fetch and display keys and HWIDs
+        async function fetchKeysAndHwids() {
+            try {
+                const response = await fetch('/KeyRaw');
                 if (response.ok) {
-                    const data = await response.json();
+                    const data = await response.text();
+                    const keyList = document.getElementById('keyList');
+                    keyList.innerHTML = `<pre>${data}</pre>`;
                     const hwidList = document.getElementById('hwidList');
-                    const hwidData = Object.keys(data).map(key => `${key}: ${data[key].Hwid}`).join('<br>');
-                    hwidList.innerHTML = hwidData || 'No HWIDs found.';
+                    hwidList.innerHTML = `<pre>${data}</pre>`;
                 } else {
+                    document.getElementById('keyList').innerText = 'Failed to load keys.';
                     document.getElementById('hwidList').innerText = 'Failed to load HWIDs.';
                 }
             } catch (error) {
+                document.getElementById('keyList').innerText = 'Error loading keys.';
                 document.getElementById('hwidList').innerText = 'Error loading HWIDs.';
             }
         }
 
-        // Function to generate a new key
-        async function generateKey() {
-            try {
-                const response = await fetch('/generate-key', {
-                    method: 'POST'
-                });
-                if (response.ok) {
-                    const data = await response.json();
-                    alert(`Generated Key: ${data.key}`);
-                    fetchKeys(); // Refresh the key list
-                } else {
-                    alert('Failed to generate key.');
-                }
-            } catch (error) {
-                alert('Error generating key.');
-            }
-        }
-
-        // Fetch data on tab change
-        document.querySelectorAll('.tab-buttons button').forEach(button => {
-            button.addEventListener('click', function() {
-                if (this.textContent === 'KeyStored') {
-                    fetchKeys();
-                } else if (this.textContent === 'HwidStored') {
-                    fetchHWIDs();
-                }
-            });
-        });
+        // Fetch keys and HWIDs when the page loads
+        window.onload = fetchKeysAndHwids;
     </script>
 </body>
 </html>
