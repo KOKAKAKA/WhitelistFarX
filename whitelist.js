@@ -27,16 +27,6 @@ function writeJson(filePath, data) {
     fs.writeFileSync(filePath, JSON.stringify(data, null, 2));
 }
 
-// Function to trigger PrivateBin update
-function updatePrivateBin() {
-    exec('./privatebin_auto_update.sh', (error, stdout, stderr) => {
-        if (error) {
-            console.error(`Error executing script: ${error}`);
-            return;
-        }
-        console.log(`PrivateBin update output: ${stdout}`);
-    });
-}
 
 // Endpoint to generate a new key
 app.post('/generate-key', (req, res) => {
@@ -45,7 +35,6 @@ app.post('/generate-key', (req, res) => {
         const storedKeys = readJson(storedKeyPath);
         storedKeys[newKey] = 'Nil'; // Set HWID to 'Nil'
         writeJson(storedKeyPath, storedKeys);
-        updatePrivateBin(); // Trigger the upload to PrivateBin
         res.json({ success: true, key: newKey });
     } catch (error) {
         res.status(500).json({ success: false, message: error.message });
@@ -65,7 +54,6 @@ app.get('/update-hwid', (req, res) => {
         }
         storedKeys[key] = hwid;
         writeJson(storedKeyPath, storedKeys);
-        updatePrivateBin(); // Trigger the upload to PrivateBin
         res.json({ success: true, message: 'HWID updated successfully' });
     } catch (error) {
         res.status(500).json({ success: false, message: error.message });
@@ -82,7 +70,6 @@ app.post('/reset-hwid', (req, res) => {
         }
         storedKeys[key] = 'Nil';
         writeJson(storedKeyPath, storedKeys);
-        updatePrivateBin(); // Trigger the upload to PrivateBin
         res.json({ success: true, message: 'HWID reset successfully' });
     } catch (error) {
         res.status(500).json({ success: false, message: error.message });
@@ -112,7 +99,6 @@ app.get('/KeyRaw', (req, res) => {
             luaTableString += `    ["${key}"] = "${hwid}",\n`;
         }
         luaTableString += "}\n\nreturn KeysAndHwid";
-        
         res.setHeader('Cache-Control', 'no-store');
         res.setHeader('Pragma', 'no-cache');
         res.setHeader('Expires', '0');
