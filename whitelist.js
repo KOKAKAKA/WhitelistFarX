@@ -68,9 +68,28 @@ app.post('/reset-hwid', (req, res) => {
         if (storedKeys[key] === undefined) {
             return res.status(400).json({ success: false, message: 'Key not found' });
         }
+
+        // Reset HWID for the key
         storedKeys[key] = 'Nil';
         writeJson(storedKeyPath, storedKeys);
+
         res.json({ success: true, message: 'HWID reset successfully' });
+    } catch (error) {
+        res.status(500).json({ success: false, message: error.message });
+    }
+});
+
+// Endpoint to delete a key
+app.post('/delete-key', (req, res) => {
+    const { key } = req.body;
+    try {
+        const storedKeys = readJson(storedKeyPath);
+        if (storedKeys[key] === undefined) {
+            return res.status(400).json({ success: false, message: 'Key not found' });
+        }
+        delete storedKeys[key];
+        writeJson(storedKeyPath, storedKeys);
+        res.json({ success: true, message: 'Key deleted successfully' });
     } catch (error) {
         res.status(500).json({ success: false, message: error.message });
     }
