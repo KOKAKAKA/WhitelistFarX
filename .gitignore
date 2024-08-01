@@ -1,2 +1,4 @@
-# Add this to your .gitignore
+# Ignore sensitive files
 SavedToken.json
+.env
+secret-config.yml
