@@ -1,0 +1,25 @@
+anyio==3.7.1
+certifi==2024.7.4
+chardet==5.2.0
+click==8.1.7
+commonmark==0.9.1
+EditorConfig==0.12.4
+h11==0.14.0
+httpcore==0.16.3
+httpx==0.23.3
+idna==3.7
+mdurl==0.1.2
+pexpect==4.9.0
+pip-autoremove==0.10.0
+ptyprocess==0.7.0
+Pygments==2.18.0
+python-apt @ file:///home/builder/.termux-build/python-apt/src
+python-debian==0.1.49
+rfc3986==1.5.0
+rich==12.6.0
+shellingham==1.5.4
+six==1.16.0
+sniffio==1.3.1
+tomli==2.0.1
+typer==0.4.2
+typing_extensions==4.12.2

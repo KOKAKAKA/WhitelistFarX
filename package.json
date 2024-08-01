@@ -1,17 +1,16 @@
 {
-  "name": "whitelistfarx",
+  "name": "termuxs",
   "version": "1.0.0",
-  "main": "whitelist.js",
+  "main": "index.js",
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1"
   },
-  "keywords": [],
   "author": "",
   "license": "ISC",
+  "keywords": [],
   "description": "",
   "dependencies": {
-    "crypto": "^1.0.1",
-    "express": "^4.19.2",
-    "uuid": "^10.0.0"
+    "@ngrok/ngrok": "^1.4.0",
+    "ngrok": "^5.0.0-beta.2"
   }
 }
