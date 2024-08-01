@@ -1,10 +1,14 @@
 const express = require('express');
-const fs = require('fs');
+const fs = require('fs').promises; // Use promises-based fs
 const path = require('path');
-const { v4: uuidv4 } = require('uuid'); // For generating UUIDs
-const { exec } = require('child_process'); // To execute shell scripts
+const { v4: uuidv4 } = require('uuid');
+const cluster = require('cluster');
+const os = require('os');
+const axios = require('axios'); // For warm-up script
+
 const app = express();
 const port = 18635;
+const numCPUs = Math.max(1, os.cpus().length - 1); // Number of workers to use
 
 // Paths to JSON file
 const storedKeyPath = path.join(__dirname, 'StoredKey.json');
@@ -13,47 +17,64 @@ const storedKeyPath = path.join(__dirname, 'StoredKey.json');
 app.use(express.static(__dirname));
 app.use(express.json()); // To parse JSON bodies
 
-// Function to read JSON data
-function readJson(filePath) {
-    if (!fs.existsSync(filePath)) {
-        return {}; // Return empty object if file doesn't exist
-    }
-    const data = fs.readFileSync(filePath, 'utf8');
-    return JSON.parse(data);
-}
+let cachedKeys = null;
 
-// Function to write JSON data
-function writeJson(filePath, data) {
-    fs.writeFileSync(filePath, JSON.stringify(data, null, 2));
-}
+// Function to read JSON data asynchronously with caching
+const readJsonAsync = async (filePath) => {
+    if (cachedKeys) return cachedKeys;
 
-
-// Endpoint to generate a new key
-app.post('/generate-key', (req, res) => {
     try {
-        const newKey = uuidv4(); // Generate a new UUID
-        const storedKeys = readJson(storedKeyPath);
-        storedKeys[newKey] = 'Nil'; // Set HWID to 'Nil'
-        writeJson(storedKeyPath, storedKeys);
+        const data = await fs.readFile(filePath, 'utf8');
+        cachedKeys = JSON.parse(data);
+        return cachedKeys;
+    } catch (error) {
+        throw new Error('Error reading JSON file');
+    }
+};
+
+// Function to write JSON data asynchronously with caching update
+const writeJsonAsync = async (filePath, data) => {
+    try {
+        await fs.writeFile(filePath, JSON.stringify(data, null, 2));
+        cachedKeys = data; // Update cache after writing
+    } catch (error) {
+        throw new Error('Error writing JSON file');
+    }
+};
+
+// Warm-up function to preload data or perform initial requests
+const warmUpServer = async () => {
+    try {
+        await axios.post('http://localhost:18635/generate-key'); // Example warm-up request
+        console.log('Server warmed up');
+    } catch (error) {
+        console.error('Error warming up the server:', error.message);
+    }
+};
+
+// Define endpoints here
+// ... [your endpoint definitions here]
+// Endpoint to generate a new key
+app.post('/generate-key', async (req, res) => {
+    try {
+        const newKey = uuidv4();
+        const storedKeys = await readJsonAsync(storedKeyPath);
+        storedKeys[newKey] = 'Nil';
+        await writeJsonAsync(storedKeyPath, storedKeys);
         res.json({ success: true, key: newKey });
     } catch (error) {
         res.status(500).json({ success: false, message: error.message });
     }
 });
 
-// Endpoint to update HWID for a given key (using GET request)
-app.get('/update-hwid', (req, res) => {
-    const { key, hwid } = req.query;  // Use query parameters instead of body
+// Endpoint to update HWID for a given key
+app.get('/update-hwid', async (req, res) => {
+    const { key, hwid } = req.query;
     try {
-        const storedKeys = readJson(storedKeyPath);
-        if (storedKeys[key] === undefined) {
-            return res.status(400).json({ success: false, message: 'Key not found' });
-        }
-        if (storedKeys[key] !== 'Nil') {
-            return res.status(400).json({ success: false, message: 'HWID already set' });
-        }
+        const storedKeys = await readJsonAsync(storedKeyPath);
+        if (!storedKeys[key]) return res.status(400).json({ success: false, message: 'Key not found or HWID already set' });
         storedKeys[key] = hwid;
-        writeJson(storedKeyPath, storedKeys);
+        await writeJsonAsync(storedKeyPath, storedKeys);
         res.json({ success: true, message: 'HWID updated successfully' });
     } catch (error) {
         res.status(500).json({ success: false, message: error.message });
@@ -61,18 +82,13 @@ app.get('/update-hwid', (req, res) => {
 });
 
 // Endpoint to reset HWID for a given key
-app.post('/reset-hwid', (req, res) => {
+app.post('/reset-hwid', async (req, res) => {
     const { key } = req.body;
     try {
-        const storedKeys = readJson(storedKeyPath);
-        if (storedKeys[key] === undefined) {
-            return res.status(400).json({ success: false, message: 'Key not found' });
-        }
-
-        // Reset HWID for the key
+        const storedKeys = await readJsonAsync(storedKeyPath);
+        if (!storedKeys[key]) return res.status(400).json({ success: false, message: 'Key not found' });
         storedKeys[key] = 'Nil';
-        writeJson(storedKeyPath, storedKeys);
-
+        await writeJsonAsync(storedKeyPath, storedKeys);
         res.json({ success: true, message: 'HWID reset successfully' });
     } catch (error) {
         res.status(500).json({ success: false, message: error.message });
@@ -80,26 +96,24 @@ app.post('/reset-hwid', (req, res) => {
 });
 
 // Endpoint to delete a key
-app.post('/delete-key', (req, res) => {
+app.post('/delete-key', async (req, res) => {
     const { key } = req.body;
     try {
-        const storedKeys = readJson(storedKeyPath);
-        if (storedKeys[key] === undefined) {
-            return res.status(400).json({ success: false, message: 'Key not found' });
-        }
+        const storedKeys = await readJsonAsync(storedKeyPath);
+        if (!storedKeys[key]) return res.status(400).json({ success: false, message: 'Key not found' });
         delete storedKeys[key];
-        writeJson(storedKeyPath, storedKeys);
+        await writeJsonAsync(storedKeyPath, storedKeys);
         res.json({ success: true, message: 'Key deleted successfully' });
     } catch (error) {
         res.status(500).json({ success: false, message: error.message });
     }
 });
 
-// Endpoint to fetch all keys and HWIDs, return as Lua table string
-app.get('/fetch-keys-hwids', (req, res) => {
+// Endpoint to fetch all keys and HWIDs as Lua table string
+app.get('/fetch-keys-hwids', async (req, res) => {
     try {
-        const storedKeys = readJson(storedKeyPath);
-        let luaTableString = "return " + JSON.stringify(storedKeys).replace(/"(\w+)":/g, '$1:').replace(/"/g, "'");
+        const storedKeys = await readJsonAsync(storedKeyPath);
+        const luaTableString = "return " + JSON.stringify(storedKeys).replace(/"(\w+)":/g, '$1:').replace(/"/g, "'");
         res.setHeader('Cache-Control', 'no-store');
         res.setHeader('Pragma', 'no-cache');
         res.setHeader('Expires', '0');
@@ -109,10 +123,10 @@ app.get('/fetch-keys-hwids', (req, res) => {
     }
 });
 
-// New endpoint to fetch keys and HWIDs as a Lua script
-app.get('/KeyRaw', (req, res) => {
+// Endpoint to fetch keys and HWIDs as a Lua script
+app.get('/KeyRaw', async (req, res) => {
     try {
-        const storedKeys = readJson(storedKeyPath);
+        const storedKeys = await readJsonAsync(storedKeyPath);
         let luaTableString = "local KeysAndHwid = {\n";
         for (const [key, hwid] of Object.entries(storedKeys)) {
             luaTableString += `    ["${key}"] = "${hwid}",\n`;
@@ -134,6 +148,31 @@ app.get('/', (req, res) => {
 });
 
 // Start the server
-app.listen(port, () => {
-    console.log(`Server running at http://localhost:${port}`);
-});
+const startServer = async () => {
+    await new Promise((resolve) => {
+        app.listen(port, () => {
+            console.log(`Worker process listening on http://localhost:${port}`);
+            resolve();
+        });
+    });
+
+    // Warm up the server
+    await warmUpServer();
+};
+
+if (cluster.isMaster) {
+    console.log(`Master ${process.pid} is running`);
+
+    // Fork workers
+    for (let i = 0; i < numCPUs; i++) {
+        cluster.fork();
+    }
+
+    cluster.on('exit', (worker, code, signal) => {
+        console.log(`Worker ${worker.process.pid} died`);
+    });
+} else {
+    // Workers can share any TCP connection
+    // In this case it is an HTTP server
+    startServer();
+}

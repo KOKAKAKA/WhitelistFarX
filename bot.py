@@ -5,6 +5,7 @@ import requests
 from datetime import datetime, timedelta
 import json
 import os
+import re
 
 # Load bot token from SavedToken.json
 def load_token():
@@ -219,7 +220,7 @@ async def delete_key(interaction: discord.Interaction, key: str):
     except ValueError as e:
         await interaction.response.send_message(f'Error parsing JSON: {e}', ephemeral=True)
 
-@bot.tree.command(name="resethwid", description="Reset HWID for the whitelisted user")
+@bot.tree.command(name="resethwid", description="Reset HWID for a user")
 @app_commands.describe(user="The user whose HWID will be reset")
 async def reset_hwid(interaction: discord.Interaction, user: discord.User):
     if interaction.guild.id != ALLOWED_GUILD_ID:
@@ -241,11 +242,17 @@ async def reset_hwid(interaction: discord.Interaction, user: discord.User):
         if user_data:
             user_key = user_data["key"]
             reset_url = "http://localhost:18635/reset-hwid"
-            reset_response = requests.post(reset_url, json={"key": user_key})
+            reset_response = requests.post(reset_url, json={"key": user_key}, timeout=30)
             reset_data = reset_response.json()
 
             if reset_response.status_code == 200 and reset_data.get('success'):
-                await interaction.response.send_message(f"HWID for key `{user_key}` reset successfully.", ephemeral=True)
+                embed = discord.Embed(
+                    title="HWID Reset Successful",
+                    description=f"**User:** {user.name}\n**Status:** HWID has been successfully reset.",
+                    color=discord.Color.blue()
+                )
+                embed.set_footer(text=f"Requested at {datetime.utcnow().strftime('%Y-%m-%d %H:%M:%S')} UTC")
+                embed.set_image(url="https://cdn.pfps.gg/banners/3222-aesthetic-blue.gif")
 
                 # Re-add the whitelist role to the user
                 guild = interaction.guild
@@ -254,45 +261,107 @@ async def reset_hwid(interaction: discord.Interaction, user: discord.User):
                     role = guild.get_role(WHITELIST_ROLE_ID)
                     if role:
                         await member.add_roles(role)
+                
+                await interaction.response.send_message(embed=embed, ephemeral=True)
             else:
-                await interaction.response.send_message(f"Failed to reset HWID for key `{user_key}`. Error: {reset_data.get('message')}", ephemeral=True)
+                embed = discord.Embed(
+                    title="HWID Reset Failed",
+                    description=f"**User:** {user.name}\n**Status:** Failed to reset HWID.",
+                    color=discord.Color.red()
+                )
+                embed.set_footer(text=f"Requested at {datetime.utcnow().strftime('%Y-%m-%d %H:%M:%S')} UTC")
+                embed.set_image(url="https://cdn.pfps.gg/banners/3222-aesthetic-blue.gif")
+                
+                await interaction.response.send_message(embed=embed, ephemeral=True)
         else:
-            await interaction.response.send_message(f"No key found for user `{user.mention}`.", ephemeral=True)
+            embed = discord.Embed(
+                title="HWID Reset Failed",
+                description=f"No whitelist data found for {user.name}.",
+                color=discord.Color.red()
+            )
+            embed.set_footer(text=f"Requested at {datetime.utcnow().strftime('%Y-%m-%d %H:%M:%S')} UTC")
+            embed.set_image(url="https://cdn.pfps.gg/banners/3222-aesthetic-blue.gif")
+            
+            await interaction.response.send_message(embed=embed, ephemeral=True)
     except requests.exceptions.RequestException as e:
-        await interaction.response.send_message(f'Error: {e}', ephemeral=True)
-    except ValueError as e:
-        await interaction.response.send_message(f'Error parsing JSON: {e}', ephemeral=True)
+        embed = discord.Embed(
+            title="HWID Reset Error",
+            description=f'Error during HWID reset: {e}',
+            color=discord.Color.red()
+        )
+        embed.set_footer(text=f"Requested at {datetime.utcnow().strftime('%Y-%m-%d %H:%M:%S')} UTC")
+        embed.set_image(url="https://cdn.pfps.gg/banners/3222-aesthetic-blue.gif")
+        
+        await interaction.response.send_message(embed=embed, ephemeral=True)
     except Exception as e:
-        await interaction.response.send_message(f'Unexpected error: {e}', ephemeral=True)
+        embed = discord.Embed(
+            title="Unexpected Error",
+            description=f'Unexpected error: {e}',
+            color=discord.Color.red()
+        )
+        embed.set_footer(text=f"Requested at {datetime.utcnow().strftime('%Y-%m-%d %H:%M:%S')} UTC")
+        embed.set_image(url="https://cdn.pfps.gg/banners/3222-aesthetic-blue.gif")
+        
+        await interaction.response.send_message(embed=embed, ephemeral=True)
 
 @bot.tree.command(name="profile", description="Show your profile information")
 async def profile(interaction: discord.Interaction):
     user_id = str(interaction.user.id)
     file_path = 'WhitelistedUser.json'
     try:
+        # Read user data
         with open(file_path, 'r') as file:
             users_data = json.load(file)
             user_data = users_data.get(user_id, None)
-            if user_data:
-                embed = discord.Embed(
-                    title="Profile Information",
-                    description=(
-                        f"**User:** {interaction.user.name} ({interaction.user.id})\n\n"
-                        f"**Status:** {user_data['status']}\n\n"
-                        f"**Key:** {user_data['key']}\n\n"
-                        f"**Expiration:** {user_data['expiration']}\n\n"
-                        f"**Reason:** {user_data['reason']}\n\n"
-                        f"**Created:** {user_data['created']}"
-                    ),
-                    color=discord.Color.blue()
-                )
-                embed.set_footer(text=f"Requested at {datetime.utcnow().strftime('%Y-%m-%d %H:%M:%S')} UTC")
-                embed.set_image(url="https://cdn.pfps.gg/banners/2919-cat.gif")  # Same image as whitelist
-                await interaction.response.send_message(embed=embed, ephemeral=True)
-            else:
-                await interaction.response.send_message("No profile data found.", ephemeral=True)
+        
+        # Debug print
+        print("User Data:", user_data)
+
+        if user_data:
+            # Fetch HWID data
+            hwid_url = "http://localhost:18635/fetch-keys-hwids"
+            response = requests.get(hwid_url)
+            response.raise_for_status()
+            
+            # Clean up and parse HWID data
+            hwid_data = response.text
+            
+            # Remove the 'return ' prefix and replace single quotes with double quotes
+            hwid_data = re.sub(r"^return\s*", "", hwid_data)
+            hwid_data = hwid_data.replace("'", '"')
+            
+            # Parse the data as JSON
+            hwid_data = json.loads(hwid_data)
+            
+            # Debug print
+            print("HWID Data:", hwid_data)
+
+            # Retrieve HWID
+            hwid = hwid_data.get(user_data.get("key", ""), "None")
+            
+            # Create embed message
+            embed = discord.Embed(
+                title="Profile Information",
+                description=f"**User:** {interaction.user.name} ({interaction.user.id})\n"
+                            f"**Status:** {user_data.get('status', 'Unknown')}\n"
+                            f"**Key:** {user_data.get('key', 'None')}\n"
+                            f"**Expiration:** {user_data.get('expiration', 'Unknown')}\n"
+                            f"**Reason:** {user_data.get('reason', 'None')}\n"
+                            f"**Created:** {user_data.get('created', 'Unknown')}\n"
+                            f"**HWID:** {hwid}",
+                color=discord.Color.blue()
+            )
+            embed.set_footer(text=f"Requested at {datetime.utcnow().strftime('%Y-%m-%d %H:%M:%S')} UTC")
+            embed.set_image(url="https://cdn.pfps.gg/banners/2919-cat.gif")
+            await interaction.response.send_message(embed=embed, ephemeral=True)
+        else:
+            await interaction.response.send_message("No profile data found.", ephemeral=True)
+    except json.JSONDecodeError as e:
+        await interaction.response.send_message(f"Error parsing profile data: {e}", ephemeral=True)
+    except requests.RequestException as e:
+        await interaction.response.send_message(f"Error fetching HWID data: {e}", ephemeral=True)
     except Exception as e:
-        await interaction.response.send_message(f'Error reading profile data: {e}', ephemeral=True)
+        await interaction.response.send_message(f'Error: {e}', ephemeral=True)
 
 @bot.tree.command(name="help", description="List all available commands")
 async def help_command(interaction: discord.Interaction):

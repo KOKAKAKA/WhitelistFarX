@@ -42,7 +42,7 @@
     </footer>
 
     <script>
-        // Function to show the selected tab
+        // Show the selected tab
         function showTab(tabId) {
             document.querySelectorAll('.tab-content').forEach(tab => {
                 tab.style.display = 'none';
@@ -78,6 +78,7 @@
         // Function to reset HWID
         async function resetHwid() {
             const key = prompt('Enter the key to reset HWID:');
+            if (!key) return; // If no key is provided, do nothing
             try {
                 const response = await fetch('/reset-hwid', {
                     method: 'POST',
@@ -98,10 +99,8 @@
                 const response = await fetch('/KeyRaw');
                 if (response.ok) {
                     const data = await response.text();
-                    const keyList = document.getElementById('keyList');
-                    keyList.innerHTML = `<pre>${data}</pre>`;
-                    const hwidList = document.getElementById('hwidList');
-                    hwidList.innerHTML = `<pre>${data}</pre>`;
+                    document.getElementById('keyList').innerHTML = `<pre>${data}</pre>`;
+                    document.getElementById('hwidList').innerHTML = `<pre>${data}</pre>`;
                 } else {
                     document.getElementById('keyList').innerText = 'Failed to load keys.';
                     document.getElementById('hwidList').innerText = 'Failed to load HWIDs.';
