@@ -269,22 +269,18 @@ async def profile(interaction: discord.Interaction, user: discord.User):
         await interaction.response.send_message("You do not have permission to view this profile.", ephemeral=True)
         return
 
-    # Acknowledge the interaction
     await interaction.response.defer()
 
     try:
         url = "http://localhost:18635/fetch-keys-hwids"
         response = run_curl_command(url, method='GET')
-        response = response.strip()  # Ensure no extraneous whitespace
+        response = response.strip()
 
-        # Handle specific response format
         if response.startswith("return "):
             response = response[len("return "):]
         
-        # Replace single quotes with double quotes
         response = response.replace("'", '"')
 
-        # Convert response to JSON
         try:
             hwid_data = json.loads(response)
         except json.JSONDecodeError as e:
@@ -308,25 +304,16 @@ async def profile(interaction: discord.Interaction, user: discord.User):
                            f"**HWID:**\n{hwid}\n**Expiration:**\n{user_data.get('expiration', 'Not Specified')}\n"
                            f"**Reason:**\n{user_data.get('reason', 'Not Specified')}\n**Created:**\n{user_data.get('created', 'Not Specified')}\n"
                            f"**Status:**\n{user_data.get('status', 'Not Specified')}")
-            else:
-                description = f"No data found for user {user.name}."
-
-            await send_embed(interaction, "User Profile", description, discord.Color.blue(), images["profile"])
         else:
-            await send_embed(interaction, "Error", f"No data found for user {user.name}.", discord.Color.red())
+            description = f"No data found for user {user.name}."
+
+        await send_embed(interaction, "User Profile", description, discord.Color.blue(), images["profile"])
 
     except Exception as e:
         error_message = f'Error: {str(e)}'
         if len(error_message) > 2000:
-            error_message = error_message[:1997] + '...'  # Truncate to fit within 2000 characters
+            error_message = error_message[:1997] + '...'
         await send_embed(interaction, "Error", error_message, discord.Color.red())
-
-# Ensure you have defined send_embed like this:
-async def send_embed(interaction: discord.Interaction, title: str, description: str, color: discord.Color, image_url: str = None):
-    embed = discord.Embed(title=title, description=description, color=color)
-    if image_url:
-        embed.set_image(url=image_url)
-    await interaction.followup.send(embed=embed, ephemeral=True)
 
 @bot.tree.command(name="help", description="List all available commands")
 async def help_command(interaction: discord.Interaction):
