@@ -73,7 +73,7 @@ function restartServer() {
 
     // Exit the current process
     process.exit();
-  }, 500); // 2-second delay before running the restart script
+  }, 250); // 2-second delay before running the restart script
 }
 
 // Middleware to initialize server data if not already initialized
@@ -97,7 +97,7 @@ async function initializeData() {
 
 function resetIdleTimeout() {
   clearTimeout(idleTimeout);
-  idleTimeout = setTimeout(restartServer, 1500); // 5 seconds of inactivity
+  idleTimeout = setTimeout(restartServer, 10000); // 5 seconds of inactivity
 }
 
 // Endpoint to generate a new key
