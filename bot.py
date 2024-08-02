@@ -5,6 +5,7 @@ import subprocess
 from datetime import datetime, timedelta
 import json
 import aiofiles
+import time
 
 def load_token():
     with open('SavedToken.json', 'r') as file:
@@ -99,21 +100,22 @@ def calculate_expiration(expiration: str, now: datetime) -> (str, datetime):
         return 'Invalid format', None
     return expiration_date.strftime('%Y-%m-%d %H:%M:%S UTC'), expiration_date
 
-def run_curl_command(url: str, method: str = 'GET', data: dict = None) -> dict:
+def run_curl_command(url: str, method: str = 'GET', data: dict = None) -> str:
     command = ['curl', '-X', method, url]
 
     if data:
         command += ['-d', json.dumps(data), '-H', 'Content-Type: application/json']
 
+    print(f"Running command: {' '.join(command)}")  # Debug: Print command being run
+
     result = subprocess.run(command, capture_output=True, text=True)
-    
+
+    print(f"Command result: {result.stdout}")  # Debug: Print command result
+
     if result.returncode != 0:
         raise Exception(f'curl error: {result.stderr}')
 
-    try:
-        return json.loads(result.stdout)
-    except json.JSONDecodeError:
-        raise ValueError(f'Invalid JSON response: {result.stdout}')
+    return result.stdout.strip()  # Ensure no extraneous whitespace
 
 @bot.event
 async def on_ready():
@@ -271,18 +273,52 @@ async def profile(interaction: discord.Interaction, user: discord.User):
         await interaction.response.send_message("You do not have permission to view this profile.", ephemeral=True)
         return
 
-    thinking_message = await interaction.response.send_message("Thinking...", ephemeral=True)
+    # Acknowledge the interaction
+    await interaction.response.defer()
 
     try:
+        url = "http://localhost:18635/fetch-keys-hwids"
+        response = run_curl_command(url, method='GET')
+        response = response.strip()  # Ensure no extraneous whitespace
+
+        # Handle specific response format
+        if response.startswith("return "):
+            response = response[len("return "):]
+        
+        # Replace single quotes with double quotes
+        response = response.replace("'", '"')
+
+        # Convert response to JSON
+        try:
+            hwid_data = json.loads(response)
+        except json.JSONDecodeError as e:
+            await interaction.followup.send(f"Error decoding JSON response: {e}", ephemeral=True)
+            return
+
+        key = None
+        hwid = 'No HWID found'
+
         file_path = 'WhitelistedUser.json'
         async with aiofiles.open(file_path, 'r') as file:
             users_data = json.loads(await file.read())
             user_data = users_data.get(str(user.id))
 
         if user_data:
+            key = user_data.get('key')
+            if key:
+                hwid = hwid_data.get(key, 'No HWID found')
+
             embed = discord.Embed(
                 title="User Profile",
-                description=f"**User:**\n{user.name} ({user.id})\n**Key:**\n{user_data['key']}\n**Expiration:**\n{user_data['expiration']}\n**Reason:**\n{user_data['reason']}\n**Created:**\n{user_data['created']}\n**Status:**\n{user_data['status']}",
+                description=(
+                    f"**User:**\n{user.name} ({user.id})\n"
+                    f"**Key:**\n{key}\n"
+                    f"**HWID:**\n{hwid}\n"
+                    f"**Expiration:**\n{user_data.get('expiration', 'Not Specified')}\n"
+                    f"**Reason:**\n{user_data.get('reason', 'Not Specified')}\n"
+                    f"**Created:**\n{user_data.get('created', 'Not Specified')}\n"
+                    f"**Status:**\n{user_data.get('status', 'Not Specified')}"
+                ),
                 color=discord.Color.blue()
             )
             embed.set_footer(text=f"Requested at {datetime.utcnow().strftime('%Y-%m-%d %H:%M:%S')} UTC")
@@ -292,7 +328,10 @@ async def profile(interaction: discord.Interaction, user: discord.User):
         else:
             await interaction.followup.send(f"No data found for user {user.name}.", ephemeral=True)
     except Exception as e:
-        await interaction.followup.send(f'Error: {e}', ephemeral=True)
+        error_message = f'Error: {str(e)}'
+        if len(error_message) > 2000:
+            error_message = error_message[:1997] + '...'  # Truncate to fit within 2000 characters
+        await interaction.followup.send(error_message, ephemeral=True)
 
 @bot.tree.command(name="help", description="List all available commands")
 async def help_command(interaction: discord.Interaction):
