@@ -1,11 +1,11 @@
 import discord
 from discord.ext import commands
 from discord import app_commands
+import aiofiles
+import aiohttp
+import json
 import subprocess
 from datetime import datetime, timedelta
-import json
-import aiofiles
-import asyncio
 
 def load_token():
     with open('SavedToken.json', 'r') as file:
@@ -32,6 +32,8 @@ images = {
     "reset_hwid": "https://cdn.pfps.gg/banners/3222-aesthetic-blue.gif",
     "profile": "https://cdn.pfps.gg/banners/2919-cat.gif"
 }
+
+last_command_time = datetime.utcnow()  # Track the time of the last command
 
 async def update_whitelist_file(user_id: int, key: str, expiration: str, reason: str, created: datetime):
     file_path = 'WhitelistedUser.json'
@@ -61,9 +63,12 @@ async def update_role_and_key(user_id: int, remove_role: bool = False):
         member = guild.get_member(user_id)
         if member:
             role = guild.get_role(WHITELIST_ROLE_ID)
-            if role and remove_role:
-                await member.remove_roles(role)
-
+            if role:
+                if remove_role:
+                    await member.remove_roles(role)
+                else:
+                    await member.add_roles(role)
+                
     file_path = 'WhitelistedUser.json'
     try:
         async with aiofiles.open(file_path, 'r+') as file:
@@ -98,30 +103,20 @@ def calculate_expiration(expiration: str, now: datetime) -> (str, datetime):
         return 'Invalid format', None
     return expiration_date.strftime('%Y-%m-%d %H:%M:%S UTC'), expiration_date
 
-def run_curl_command(url: str, method: str = 'GET', data: dict = None) -> str:
-    command = ['curl', '-X', method, url]
-
-    if data:
-        command += ['-d', json.dumps(data), '-H', 'Content-Type: application/json']
-
-    print(f"Running command: {' '.join(command)}")  # Debug: Print command being run
-
-    result = subprocess.run(command, capture_output=True, text=True)
-
-    print(f"Command result: {result.stdout}")  # Debug: Print command result
-
-    if result.returncode != 0:
-        raise Exception(f'curl error: {result.stderr}')
-
-    return result.stdout.strip()  # Ensure no extraneous whitespace
-
-async def send_embed(interaction, title, description, color, image_url=None, footer_text=None, ephemeral=True):
-    embed = discord.Embed(title=title, description=description, color=color)
-    if image_url:
-        embed.set_image(url=image_url)
-    if footer_text:
-        embed.set_footer(text=footer_text)
-    await interaction.followup.send(embed=embed, ephemeral=ephemeral)
+async def run_curl_command_with_retries(url: str, method: str = 'GET', data: dict = None, retries: int = 5, delay: int = 2) -> dict:
+    for attempt in range(retries):
+        try:
+            async with aiohttp.ClientSession() as session:
+                async with session.request(method, url, json=data) as response:
+                    response_text = await response.text()
+                    if response.status != 200:
+                        raise Exception(f'HTTP error: {response.status}')
+                    return json.loads(response_text)
+        except Exception as e:
+            if attempt < retries - 1:
+                await asyncio.sleep(delay)
+            else:
+                raise e
 
 @bot.event
 async def on_ready():
@@ -134,113 +129,127 @@ async def on_ready():
     await update_bot_status()
 
 async def update_bot_status():
+    global last_command_time
     now = datetime.utcnow()
-    await bot.change_presence(
-        activity=discord.Streaming(name="Synthia Whitelist Service", url="https://www.twitch.tv/discord")
-    )
+    elapsed_time = (now - last_command_time).total_seconds()
+
+    if elapsed_time > 30:
+        await bot.change_presence(status=discord.Status.invisible, activity=None)
+    else:
+        await bot.change_presence(
+            activity=discord.Streaming(name="Synthia Whitelist Service", url="https://www.twitch.tv/discord")
+        )
 
 @bot.event
 async def on_command_completion(ctx):
+    global last_command_time
+    last_command_time = datetime.utcnow()
     await update_bot_status()
-
-async def command_cooldown():
-    await asyncio.sleep(7)
 
 @bot.tree.command(name="whitelist", description="Whitelist a user and generate a key")
 @app_commands.describe(user="The user to whitelist", expiration="Expiration time (e.g., 1d, 2h, 1m, 30s, never)", reason="Reason for whitelisting")
 async def whitelist(interaction: discord.Interaction, user: discord.User, expiration: str = "never", reason: str = "Not Specified"):
     if interaction.guild.id != ALLOWED_GUILD_ID:
-        await send_embed(interaction, "Error", "This command can only be used in the specified server.", discord.Color.red())
+        await interaction.response.send_message(embed=discord.Embed(title="Error", description="This command can only be used in the specified server.", color=discord.Color.red()), ephemeral=True)
         return
 
     if not is_whitelist_admin(interaction.user):
-        await send_embed(interaction, "Error", "You do not have permission to use this command.", discord.Color.red())
+        await interaction.response.send_message(embed=discord.Embed(title="Error", description="You do not have permission to use this command.", color=discord.Color.red()), ephemeral=True)
         return
 
-    await send_embed(interaction, "Thinking", "Processing your request...", discord.Color.green())
-    await command_cooldown()
+    initial_embed = discord.Embed(title="Thinking", description="Generating key...", color=discord.Color.green())
+    await interaction.response.send_message(embed=initial_embed, ephemeral=True)
 
     try:
         url = "http://localhost:18635/generate-key"
-        response = run_curl_command(url, method='POST')
-        data = json.loads(response)
+        data = await run_curl_command_with_retries(url, method='POST')
 
         if data.get('success'):
             new_key = data['key']
             expiration_str, expiration_date = calculate_expiration(expiration, datetime.utcnow())
 
-            description = (f"**User:**\n{user.name} ({user.id})\n**Status:**\nWhitelisted\n**Key:**\n{new_key}\n"
-                           f"**Expiration:**\n{expiration_str}\n**Reason:**\n{reason}")
-            await send_embed(interaction, "Key Service", description, discord.Color.blue(), images["whitelist"])
+            success_embed = discord.Embed(
+                title="Key Generated",
+                description=f"**User:** {user.name} ({user.id})\n**Key:** {new_key}\n**Expiration:** {expiration_str}\n**Reason:** {reason}",
+                color=discord.Color.green()
+            )
+            success_embed.set_footer(text=f"Requested at {datetime.utcnow().strftime('%Y-%m-%d %H:%M:%S')} UTC")
+            success_embed.set_image(url=images["whitelist"])
 
             try:
-                await user.send(embed=discord.Embed(title="Whitelisted", description=description, color=discord.Color.blue()))
+                await user.send(embed=success_embed)
                 await update_whitelist_file(user.id, new_key, expiration_str, reason, datetime.utcnow())
+                await update_role_and_key(user.id)
 
-                guild = interaction.guild
-                member = guild.get_member(user.id)
-                if member:
-                    role = guild.get_role(WHITELIST_ROLE_ID)
-                    if role:
-                        await member.add_roles(role)
-                
-                success_description = (f"**User:**\n{user.name} ({user.id})\n**Key:**\n{new_key}\n"
-                                       f"**Expiration:**\n{expiration_str}\n**Reason:**\n{reason}")
-                await send_embed(interaction, "Whitelisting Success", success_description, discord.Color.blue(), images["whitelist"])
+                confirmation_embed = discord.Embed(
+                    title="Whitelisting Success",
+                    description=f"**User:** {user.name} ({user.id})\n**Key:** {new_key}\n**Expiration:** {expiration_str}\n**Reason:** {reason}",
+                    color=discord.Color.green()
+                )
+                confirmation_embed.set_footer(text=f"Requested at {datetime.utcnow().strftime('%Y-%m-%d %H:%M:%S')} UTC")
+                confirmation_embed.set_image(url=images["whitelist"])
+                await interaction.followup.send(embed=confirmation_embed, ephemeral=True)
             except discord.Forbidden:
-                await send_embed(interaction, "Error", f"Unable to send a DM to {user.name}.", discord.Color.red())
+                await interaction.followup.send(embed=discord.Embed(title="Error", description=f"Unable to send a DM to {user.name}.", color=discord.Color.red()), ephemeral=True)
         else:
-            await send_embed(interaction, "Error", 'Failed to generate a new key.', discord.Color.red())
+            await interaction.followup.send(embed=discord.Embed(title="Error", description="Failed to generate a new key.", color=discord.Color.red()), ephemeral=True)
     except ValueError as e:
-        await send_embed(interaction, "Error", f'Error: {e}', discord.Color.red())
+        await interaction.followup.send(embed=discord.Embed(title="Error", description=f'Error: {e}', color=discord.Color.red()), ephemeral=True)
     except Exception as e:
-        await send_embed(interaction, "Error", f'Unexpected error: {e}', discord.Color.red())
+        await interaction.followup.send(embed=discord.Embed(title="Error", description=f'Unexpected error: {e}', color=discord.Color.red()), ephemeral=True)
+
 
 @bot.tree.command(name="deletekey", description="Delete a key from the server")
 @app_commands.describe(key="The key to delete")
 async def deletekey(interaction: discord.Interaction, key: str):
     if interaction.guild.id != ALLOWED_GUILD_ID:
-        await send_embed(interaction, "Error", "This command can only be used in the specified server.", discord.Color.red())
+        await interaction.response.send_message(embed=discord.Embed(title="Error", description="This command can only be used in the specified server.", color=discord.Color.red()), ephemeral=True)
         return
 
     if not is_whitelist_admin(interaction.user):
-        await send_embed(interaction, "Error", "You do not have permission to use this command.", discord.Color.red())
+        await interaction.response.send_message(embed=discord.Embed(title="Error", description="You do not have permission to use this command.", color=discord.Color.red()), ephemeral=True)
         return
 
-    await send_embed(interaction, "Thinking", "Processing your request...", discord.Color.green())
-    await command_cooldown()
+    initial_embed = discord.Embed(title="Thinking", description="Deleting key...", color=discord.Color.green())
+    await interaction.response.send_message(embed=initial_embed, ephemeral=True)
 
     try:
         url = "http://localhost:18635/delete-key"
-        response = run_curl_command(url, method='POST', data={"key": key})
-        data = json.loads(response)
+        data = await run_curl_command_with_retries(url, method='POST', data={"key": key})
 
         if data.get('success'):
             await update_role_and_key(key, remove_role=True)
-            await send_embed(interaction, "Success", f"Key '{key}' has been deleted and role removed from whitelisted users.", discord.Color.blue())
+            success_embed = discord.Embed(
+                title="Key Deleted",
+                description=f"Key '{key}' has been deleted and role removed from whitelisted users.",
+                color=discord.Color.red()
+            )
+            success_embed.set_footer(text=f"Requested at {datetime.utcnow().strftime('%Y-%m-%d %H:%M:%S')} UTC")
+            success_embed.set_image(url=images["delete_key"])
+            await interaction.followup.send(embed=success_embed, ephemeral=True)
         else:
-            await send_embed(interaction, "Error", f"Failed to delete the key '{key}'.", discord.Color.red())
+            await interaction.followup.send(embed=discord.Embed(title="Error", description=f"Failed to delete the key '{key}'.", color=discord.Color.red()), ephemeral=True)
     except Exception as e:
-        await send_embed(interaction, "Error", f'Error: {e}', discord.Color.red())
+        await interaction.followup.send(embed=discord.Embed(title="Error", description=f'Error: {e}', color=discord.Color.red()), ephemeral=True)
+
 
 @bot.tree.command(name="resethwid", description="Reset HWID for a user")
 @app_commands.describe(user="The user to reset HWID for")
 async def resethwid(interaction: discord.Interaction, user: discord.User):
     if interaction.guild.id != ALLOWED_GUILD_ID:
-        await send_embed(interaction, "Error", "This command can only be used in the specified server.", discord.Color.red())
+        await interaction.response.send_message(embed=discord.Embed(title="Error", description="This command can only be used in the specified server.", color=discord.Color.red()), ephemeral=True)
         return
 
     if not is_whitelist_admin(interaction.user):
-        await send_embed(interaction, "Error", "You do not have permission to use this command.", discord.Color.red())
+        await interaction.response.send_message(embed=discord.Embed(title="Error", description="You do not have permission to use this command.", color=discord.Color.red()), ephemeral=True)
         return
 
-    await send_embed(interaction, "Thinking", "Processing your request...", discord.Color.green())
-    await command_cooldown()
+    initial_embed = discord.Embed(title="Thinking", description="Resetting HWID...", color=discord.Color.green())
+    await interaction.response.send_message(embed=initial_embed, ephemeral=True)
 
     try:
         url = "http://localhost:18635/reset-hwid"
-        response = run_curl_command(url, method='POST', data={"user_id": user.id})
-        data = json.loads(response)
+        data = await run_curl_command_with_retries(url, method='POST', data={"user_id": user.id})
 
         if data.get('success'):
             file_path = 'WhitelistedUser.json'
@@ -252,28 +261,61 @@ async def resethwid(interaction: discord.Interaction, user: discord.User):
                     await file.write(json.dumps(users_data, indent=4))
                     await file.truncate()
 
-            await send_embed(interaction, "Success", f"HWID for user {user.name} has been reset.", discord.Color.blue())
+            success_embed = discord.Embed(
+                title="HWID Reset",
+                description=f"HWID for user {user.name} has been reset.",
+                color=discord.Color.orange()
+            )
+            success_embed.set_footer(text=f"Requested at {datetime.utcnow().strftime('%Y-%m-%d %H:%M:%S')} UTC")
+            success_embed.set_image(url=images["reset_hwid"])
+            await interaction.followup.send(embed=success_embed, ephemeral=True)
         else:
-            await send_embed(interaction, "Error", f"Failed to reset HWID for user {user.name}.", discord.Color.red())
+            await interaction.followup.send(embed=discord.Embed(title="Error", description=f"Failed to reset HWID for user {user.name}.", color=discord.Color.red()), ephemeral=True)
     except Exception as e:
-        await send_embed(interaction, "Error", f'Error: {e}', discord.Color.red())
+        await interaction.followup.send(embed=discord.Embed(title="Error", description=f'Error: {e}', color=discord.Color.red()), ephemeral=True)
+
+@bot.tree.command(name="help", description="List all available commands")
+async def help_command(interaction: discord.Interaction):
+    if interaction.guild.id != ALLOWED_GUILD_ID:
+        await interaction.response.send_message(embed=discord.Embed(title="Error", description="This command can only be used in the specified server.", color=discord.Color.red()), ephemeral=True)
+        return
+
+    help_embed = discord.Embed(
+        title="Help",
+        description=(
+            "**/whitelist** - Whitelist a user and generate a key\n"
+            "**/deletekey** - Delete a key from the server\n"
+            "**/resethwid** - Reset HWID for the whitelisted user\n"
+            "**/profile** - View your profile\n"
+            "**/help** - Show this help message"
+        ),
+        color=discord.Color.blue()
+    )
+    help_embed.set_image(url=images["help"])
+    await interaction.response.send_message(embed=help_embed, ephemeral=True)
 
 @bot.tree.command(name="profile", description="Get the profile of a whitelisted user")
 @app_commands.describe(user="The user to get the profile of")
-async def profile(interaction: discord.Interaction, user: discord.User):
+async def profile(interaction: discord.Interaction, user: discord.User = None):
     if interaction.guild.id != ALLOWED_GUILD_ID:
-        await interaction.response.send_message("This command can only be used in the specified server.", ephemeral=True)
+        await interaction.response.send_message(embed=discord.Embed(title="Error", description="This command can only be used in the specified server.", color=discord.Color.red()), ephemeral=True)
         return
 
-    if not is_whitelist_admin(interaction.user) and interaction.user.id != user.id:
-        await interaction.response.send_message("You do not have permission to view this profile.", ephemeral=True)
+    if user is None:
+        user = interaction.user
+
+    if not is_whitelist_admin(interaction.user) and user != interaction.user:
+        await interaction.response.send_message(embed=discord.Embed(title="Error", description="You do not have permission to view this profile.", color=discord.Color.red()), ephemeral=True)
         return
 
-    await interaction.response.defer()
+    # Acknowledge the interaction with an ephemeral embed
+    initial_embed = discord.Embed(title="Thinking", description="Fetching profile data...", color=discord.Color.green())
+    await interaction.response.send_message(embed=initial_embed, ephemeral=True)
+    await command_cooldown()  # Add delay for server restart
 
     try:
         url = "http://localhost:18635/fetch-keys-hwids"
-        response = run_curl_command(url, method='GET')
+        response = await run_curl_command_with_retries(url, method='GET')
         response = response.strip()
 
         if response.startswith("return "):
@@ -284,11 +326,9 @@ async def profile(interaction: discord.Interaction, user: discord.User):
         try:
             hwid_data = json.loads(response)
         except json.JSONDecodeError as e:
-            await send_embed(interaction, "Error", f"Error decoding JSON response: {e}", discord.Color.red())
+            error_embed = discord.Embed(title="Error", description=f"Error decoding JSON response: {e}", color=discord.Color.red())
+            await interaction.followup.send(embed=error_embed, ephemeral=True)
             return
-
-        key = None
-        hwid = 'No HWID found'
 
         file_path = 'WhitelistedUser.json'
         async with aiofiles.open(file_path, 'r') as file:
@@ -297,37 +337,35 @@ async def profile(interaction: discord.Interaction, user: discord.User):
 
         if user_data:
             key = user_data.get('key')
-            if key:
-                hwid = hwid_data.get(key, 'No HWID found')
+            hwid = hwid_data.get(key, 'No HWID found') if key else 'No HWID found'
+            created_date = user_data.get('created', 'Not Specified')
+            expiration = user_data.get('expiration', 'Not Specified')
+            reason = user_data.get('reason', 'Not Specified')
+            status = user_data.get('status', 'Not Specified')
 
-            description = (f"**User:**\n{user.name} ({user.id})\n**Key:**\n{key}\n"
-                           f"**HWID:**\n{hwid}\n**Expiration:**\n{user_data.get('expiration', 'Not Specified')}\n"
-                           f"**Reason:**\n{user_data.get('reason', 'Not Specified')}\n**Created:**\n{user_data.get('created', 'Not Specified')}\n"
-                           f"**Status:**\n{user_data.get('status', 'Not Specified')}")
+            description = (f"**User:**\n{user.name} ({user.id})\n"
+                           f"**Key:**\n<||{key}||>\n"
+                           f"**HWID:**\n<||{hwid}||>\n"
+                           f"**Created:**\n{created_date}\n"
+                           f"**Expiration:**\n{expiration}\n"
+                           f"**Reason:**\n{reason}\n"
+                           f"**Status:**\n{status}")
         else:
             description = f"No data found for user {user.name}."
 
-        await send_embed(interaction, "User Profile", description, discord.Color.blue(), images["profile"])
+        profile_embed = discord.Embed(title="User Profile", description=description, color=discord.Color.blue())
+        
+        # Add image URL at the bottom of the embed
+        if "profile" in images:
+            profile_embed.set_image(url=images["profile"])
+        await interaction.followup.send(embed=profile_embed, ephemeral=True)
 
     except Exception as e:
         error_message = f'Error: {str(e)}'
         if len(error_message) > 2000:
             error_message = error_message[:1997] + '...'
-        await send_embed(interaction, "Error", error_message, discord.Color.red())
+        error_embed = discord.Embed(title="Error", description=error_message, color=discord.Color.red())
+        await interaction.followup.send(embed=error_embed, ephemeral=True)
 
-@bot.tree.command(name="help", description="List all available commands")
-async def help_command(interaction: discord.Interaction):
-    if interaction.guild.id != ALLOWED_GUILD_ID:
-        await send_embed(interaction, "Error", "This command can only be used in the specified server.", discord.Color.red())
-        return
-
-    help_description = (
-        "**/whitelist** - Whitelist a user and generate a key\n"
-        "**/deletekey** - Delete a key from the server\n"
-        "**/resethwid** - Reset HWID for the whitelisted user\n"
-        "**/profile** - View your profile or another user's profile\n"
-        "**/help** - Show this help message"
-    )
-    await send_embed(interaction, "Help", help_description, discord.Color.blue(), images["help"])
-
+# Run the bot with the token from the JSON file
 bot.run(BOT_TOKEN)

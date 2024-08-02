@@ -11,6 +11,10 @@
   "description": "",
   "dependencies": {
     "@ngrok/ngrok": "^1.4.0",
-    "ngrok": "^5.0.0-beta.2"
+    "async-lock": "^1.4.1",
+    "express": "^4.19.2",
+    "ngrok": "^5.0.0-beta.2",
+    "node-cache": "^5.1.2",
+    "node-fetch": "^3.3.2"
   }
 }

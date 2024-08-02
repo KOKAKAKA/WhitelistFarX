@@ -5,22 +5,26 @@ const { v4: uuidv4 } = require('uuid');
 const NodeCache = require('node-cache');
 const AsyncLock = require('async-lock');
 const { exec } = require('child_process');
-const process = require('process');
 
 const app = express();
 const port = 18635;
 const storedKeyPath = path.join(__dirname, 'StoredKey.json');
-const restartScriptPath = path.join(__dirname, 'restart.js'); // Path to the restart script
-
-// Initialize cache with a time-to-live of 60 seconds
 const cache = new NodeCache({ stdTTL: 60 });
-
-// Create a lock instance to manage concurrent access
 const lock = new AsyncLock();
+const endpointHandlers = {};
+const readyCheckMap = new Map();
 
-// Flag to track if initialization has occurred
-let initialized = false;
-let idleTimeout;
+const RELOAD_INTERVAL = 10 * 60 * 1000; // 10 minutes
+const RELOAD_DELAY = 1000; // 1 second
+
+const endpointsToLoad = [
+  '/generate-key',
+  '/update-hwid',
+  '/reset-hwid',
+  '/delete-key',
+  '/fetch-keys-hwids',
+  '/KeyRaw'
+];
 
 // Utility function to read JSON file with locking
 async function readJson(filePath) {
@@ -52,152 +56,174 @@ async function writeJson(filePath, data) {
   });
 }
 
-// Function to restart the server after inactivity
-function restartServer() {
-  console.log('Restarting server due to inactivity.');
-
-  // Introduce a delay before running the restart script
-  setTimeout(() => {
-    // Execute restart.js script
-    exec(`node ${restartScriptPath}`, (error, stdout, stderr) => {
-      if (error) {
-        console.error(`Error executing restart script: ${error.message}`);
-        return;
-      }
-      if (stderr) {
-        console.error(`Restart script stderr: ${stderr}`);
-        return;
-      }
-      console.log(`Restart script stdout: ${stdout}`);
-    });
-
-    // Exit the current process
-    process.exit();
-  }, 250); // 2-second delay before running the restart script
+// Function to clear the cache
+function clearCache() {
+  console.log('Clearing cache.');
+  cache.flushAll(); // Clear all items in the cache
 }
 
-// Middleware to initialize server data if not already initialized
+// Function to load an endpoint handler
+async function loadEndpointHandler(endpoint, handler) {
+  endpointHandlers[endpoint] = handler;
+  readyCheckMap.set(endpoint, true); // Set the endpoint as ready
+  console.log(`Loading handler for ${endpoint}`);
+}
+
+// Function to unload an endpoint handler
+function unloadEndpointHandler(endpoint) {
+  console.log(`Unloading handler for ${endpoint}`);
+  delete endpointHandlers[endpoint];
+  readyCheckMap.set(endpoint, false); // Set the endpoint as not ready
+}
+
+// Middleware to dynamically load and use endpoint handlers
 app.use(async (req, res, next) => {
-  if (!initialized) {
-    await initializeData();
-    initialized = true;
+  const endpoint = req.path;
+
+  if (readyCheckMap.get(endpoint)) {
+    // Use the loaded handler
+    endpointHandlers[endpoint](req, res, next);
+  } else {
+    res.status(404).send('Not Found');
   }
-  resetIdleTimeout(); // Reset idle timer on each request
-  next();
 });
 
-async function initializeData() {
-  try {
-    await readJson(storedKeyPath);
-    console.log('Server initialized and data loaded.');
-  } catch (error) {
-    console.error('Error during initialization:', error.message);
-  }
+// Load all handlers at startup
+async function loadAllHandlers() {
+  await loadEndpointHandler('/generate-key', async (req, res) => {
+    try {
+      const newKey = uuidv4(); // Generate a new UUID
+      const storedKeys = await readJson(storedKeyPath);
+      storedKeys[newKey] = 'Nil'; // Set HWID to 'Nil'
+      await writeJson(storedKeyPath, storedKeys);
+      res.json({ success: true, key: newKey });
+    } catch (error) {
+      res.status(500).json({ success: false, message: error.message });
+    }
+  });
+
+  await loadEndpointHandler('/update-hwid', async (req, res) => {
+    const { key, hwid } = req.query;
+    try {
+      const storedKeys = await readJson(storedKeyPath);
+      if (!storedKeys[key]) {
+        return res.status(400).json({ success: false, message: 'Key not found' });
+      }
+      if (storedKeys[key] !== 'Nil') {
+        return res.status(400).json({ success: false, message: 'HWID already set' });
+      }
+      storedKeys[key] = hwid;
+      await writeJson(storedKeyPath, storedKeys);
+      res.json({ success: true, message: 'HWID updated successfully' });
+    } catch (error) {
+      res.status(500).json({ success: false, message: error.message });
+    }
+  });
+
+  await loadEndpointHandler('/reset-hwid', async (req, res) => {
+    const { key } = req.body;
+    try {
+      const storedKeys = await readJson(storedKeyPath);
+      if (!storedKeys[key]) {
+        return res.status(400).json({ success: false, message: 'Key not found' });
+      }
+      storedKeys[key] = 'Nil'; // Reset HWID for the key
+      await writeJson(storedKeyPath, storedKeys);
+      res.json({ success: true, message: 'HWID reset successfully' });
+    } catch (error) {
+      res.status(500).json({ success: false, message: error.message });
+    }
+  });
+
+  await loadEndpointHandler('/delete-key', async (req, res) => {
+    const { key } = req.body;
+    try {
+      const storedKeys = await readJson(storedKeyPath);
+      if (!storedKeys[key]) {
+        return res.status(400).json({ success: false, message: 'Key not found' });
+      }
+      delete storedKeys[key];
+      await writeJson(storedKeyPath, storedKeys);
+      res.json({ success: true, message: 'Key deleted successfully' });
+    } catch (error) {
+      res.status(500).json({ success: false, message: error.message });
+    }
+  });
+
+  await loadEndpointHandler('/fetch-keys-hwids', async (req, res) => {
+    try {
+      const storedKeys = await readJson(storedKeyPath);
+      const luaTableString = "return " + JSON.stringify(storedKeys).replace(/"(\w+)":/g, '$1:').replace(/"/g, "'");
+      res.setHeader('Cache-Control', 'no-store');
+      res.setHeader('Pragma', 'no-cache');
+      res.setHeader('Expires', '0');
+      res.send(luaTableString);
+    } catch (error) {
+      res.status(500).json({ success: false, message: error.message });
+    }
+  });
+
+  await loadEndpointHandler('/KeyRaw', async (req, res) => {
+    try {
+      const storedKeys = await readJson(storedKeyPath);
+      let luaTableString = "local KeysAndHwid = {\n";
+      for (const [key, hwid] of Object.entries(storedKeys)) {
+        luaTableString += `    ["${key}"] = "${hwid}",\n`;
+      }
+      luaTableString += "}\n\nreturn KeysAndHwid";
+      res.setHeader('Cache-Control', 'no-store');
+      res.setHeader('Pragma', 'no-cache');
+      res.setHeader('Expires', '0');
+      res.type('text/plain');
+      res.send(luaTableString);
+    } catch (error) {
+      res.status(500).json({ success: false, message: error.message });
+    }
+  });
 }
 
-function resetIdleTimeout() {
-  clearTimeout(idleTimeout);
-  idleTimeout = setTimeout(restartServer, 10000); // 5 seconds of inactivity
+// Function to measure server ping
+function measurePing(callback) {
+  const startTime = Date.now();
+  exec('ping -c 1 localhost', (error, stdout, stderr) => {
+    if (error) {
+      console.error(`Ping error: ${stderr}`);
+      callback(5000); // Return a high ping value on error
+    } else {
+      const endTime = Date.now();
+      callback(endTime - startTime);
+    }
+  });
 }
 
-// Endpoint to generate a new key
-app.post('/generate-key', async (req, res) => {
-  try {
-    const newKey = uuidv4(); // Generate a new UUID
-    const storedKeys = await readJson(storedKeyPath);
-    storedKeys[newKey] = 'Nil'; // Set HWID to 'Nil'
-    await writeJson(storedKeyPath, storedKeys);
-    res.json({ success: true, key: newKey });
-  } catch (error) {
-    res.status(500).json({ success: false, message: error.message });
-  }
-});
-
-// Endpoint to update HWID for a given key
-app.get('/update-hwid', async (req, res) => {
-  const { key, hwid } = req.query;
-  try {
-    const storedKeys = await readJson(storedKeyPath);
-    if (!storedKeys[key]) {
-      return res.status(400).json({ success: false, message: 'Key not found' });
-    }
-    if (storedKeys[key] !== 'Nil') {
-      return res.status(400).json({ success: false, message: 'HWID already set' });
-    }
-    storedKeys[key] = hwid;
-    await writeJson(storedKeyPath, storedKeys);
-    res.json({ success: true, message: 'HWID updated successfully' });
-  } catch (error) {
-    res.status(500).json({ success: false, message: error.message });
-  }
-});
-
-// Endpoint to reset HWID for a given key
-app.post('/reset-hwid', async (req, res) => {
-  const { key } = req.body;
-  try {
-    const storedKeys = await readJson(storedKeyPath);
-    if (!storedKeys[key]) {
-      return res.status(400).json({ success: false, message: 'Key not found' });
-    }
-    storedKeys[key] = 'Nil'; // Reset HWID for the key
-    await writeJson(storedKeyPath, storedKeys);
-    res.json({ success: true, message: 'HWID reset successfully' });
-  } catch (error) {
-    res.status(500).json({ success: false, message: error.message });
-  }
-});
-
-// Endpoint to delete a key
-app.post('/delete-key', async (req, res) => {
-  const { key } = req.body;
-  try {
-    const storedKeys = await readJson(storedKeyPath);
-    if (!storedKeys[key]) {
-      return res.status(400).json({ success: false, message: 'Key not found' });
-    }
-    delete storedKeys[key];
-    await writeJson(storedKeyPath, storedKeys);
-    res.json({ success: true, message: 'Key deleted successfully' });
-  } catch (error) {
-    res.status(500).json({ success: false, message: error.message });
-  }
-});
-
-// Endpoint to fetch all keys and HWIDs as Lua table string
-app.get('/fetch-keys-hwids', async (req, res) => {
-  try {
-    const storedKeys = await readJson(storedKeyPath);
-    const luaTableString = "return " + JSON.stringify(storedKeys).replace(/"(\w+)":/g, '$1:').replace(/"/g, "'");
-    res.setHeader('Cache-Control', 'no-store');
-    res.setHeader('Pragma', 'no-cache');
-    res.setHeader('Expires', '0');
-    res.send(luaTableString);
-  } catch (error) {
-    res.status(500).json({ success: false, message: error.message });
-  }
-});
-
-// Endpoint to fetch keys and HWIDs as a Lua script
-app.get('/KeyRaw', async (req, res) => {
-  try {
-    const storedKeys = await readJson(storedKeyPath);
-    let luaTableString = "local KeysAndHwid = {\n";
-    for (const [key, hwid] of Object.entries(storedKeys)) {
-      luaTableString += `    ["${key}"] = "${hwid}",\n`;
-    }
-    luaTableString += "}\n\nreturn KeysAndHwid";
-    res.setHeader('Cache-Control', 'no-store');
-    res.setHeader('Pragma', 'no-cache');
-    res.setHeader('Expires', '0');
-    res.type('text/plain');
-    res.send(luaTableString);
-  } catch (error) {
-    res.status(500).json({ success: false, message: error.message });
-  }
-});
+// Function to periodically reload handlers
+async function periodicReload() {
+  setInterval(async () => {
+    measurePing(async (ping) => {
+      if (ping > 5000) {
+        console.log('High ping detected, resetting all endpoints.');
+        for (const endpoint of endpointsToLoad) {
+          unloadEndpointHandler(endpoint);
+        }
+        await new Promise(resolve => setTimeout(resolve, RELOAD_DELAY));
+        clearCache();
+        await loadAllHandlers();
+      } else {
+        console.log(`Ping: ${ping} ms`);
+        for (const endpoint of endpointsToLoad) {
+          unloadEndpointHandler(endpoint);
+          await new Promise(resolve => setTimeout(resolve, RELOAD_DELAY));
+          clearCache();
+          await loadAllHandlers();
+        }
+      }
+    });
+  }, RELOAD_INTERVAL);
+}
 
 // Start the server
-app.listen(port, () => {
+app.listen(port, async () => {
   console.log(`Server running at http://localhost:${port}`);
+  await loadAllHandlers();
+  periodicReload();
 });
