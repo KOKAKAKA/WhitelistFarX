@@ -13,6 +13,7 @@ const os = require('os');
 const app = express();
 const port = 18635;
 const storedKeyPath = path.join(__dirname, 'StoredKey.json');
+const whitelistedUserPath = path.join('/storage/emulated/0/download/TermuxS', 'WhitelistedUser.json');
 const cache = new NodeCache({ stdTTL: 60, checkperiod: 120 });
 const lock = new AsyncLock();
 const restartScriptPath = path.join(__dirname, 'restart.js');
@@ -42,7 +43,7 @@ async function readJson(filePath) {
       cache.set(filePath, jsonData);
       return jsonData;
     } catch (error) {
-      console.error(`Error reading file: ${error.message}`);
+      console.error(`Error reading file from ${filePath}: ${error.message}`);
       return {};
     }
   });
@@ -55,7 +56,7 @@ async function writeJson(filePath, data) {
       await fs.writeFile(filePath, JSON.stringify(data, null, 2));
       cache.set(filePath, data);
     } catch (error) {
-      console.error(`Error writing file: ${error.message}`);
+      console.error(`Error writing file to ${filePath}: ${error.message}`);
     }
   });
 }
@@ -78,7 +79,7 @@ app.post('/generate-key', async (req, res) => {
     await writeJson(storedKeyPath, storedKeys);
     res.json({ success: true, key: newKey });
   } catch (error) {
-    res.status(500).json({ success: false, message: error.message });
+    res.status(500).json({ success: false, message: `Error generating key: ${error.message}` });
   }
 });
 
@@ -97,7 +98,7 @@ app.get('/update-hwid', async (req, res) => {
     await writeJson(storedKeyPath, storedKeys);
     res.json({ success: true, message: 'HWID updated successfully' });
   } catch (error) {
-    res.status(500).json({ success: false, message: error.message });
+    res.status(500).json({ success: false, message: `Error updating HWID: ${error.message}` });
   }
 });
 
@@ -113,7 +114,7 @@ app.post('/reset-hwid', async (req, res) => {
     await writeJson(storedKeyPath, storedKeys);
     res.json({ success: true, message: 'HWID reset successfully' });
   } catch (error) {
-    res.status(500).json({ success: false, message: error.message });
+    res.status(500).json({ success: false, message: `Error resetting HWID: ${error.message}` });
   }
 });
 
@@ -129,7 +130,7 @@ app.post('/delete-key', async (req, res) => {
     await writeJson(storedKeyPath, storedKeys);
     res.json({ success: true, message: 'Key deleted successfully' });
   } catch (error) {
-    res.status(500).json({ success: false, message: error.message });
+    res.status(500).json({ success: false, message: `Error deleting key: ${error.message}` });
   }
 });
 
@@ -143,7 +144,7 @@ app.get('/fetch-keys-hwids', async (req, res) => {
     res.setHeader('Expires', '0');
     res.send(luaTableString);
   } catch (error) {
-    res.status(500).json({ success: false, message: error.message });
+    res.status(500).json({ success: false, message: `Error fetching keys and HWIDs: ${error.message}` });
   }
 });
 
@@ -162,15 +163,30 @@ app.get('/KeyRaw', async (req, res) => {
     res.type('text/plain');
     res.send(luaTableString);
   } catch (error) {
-    res.status(500).json({ success: false, message: error.message });
+    res.status(500).json({ success: false, message: `Error fetching keys and HWIDs as Lua script: ${error.message}` });
+  }
+});
+
+// Endpoint to get the profile of a whitelisted user
+app.get('/profile', async (req, res) => {
+  const { userid } = req.query;
+  try {
+    const storedUsers = await readJson(whitelistedUserPath);
+    const userProfile = storedUsers[userid];
+    if (!userProfile) {
+      return res.status(404).json({ success: false, message: 'User profile not found' });
+    }
+    res.json({ success: true, profile: userProfile });
+  } catch (error) {
+    res.status(500).json({ success: false, message: `Error fetching user profile: ${error.message}` });
   }
 });
 
 // Function to initialize the server
 async function initializeServer() {
   try {
-    // Perform any necessary initialization tasks here
-    await readJson(storedKeyPath); // Ensure the file is read and cached
+    await readJson(storedKeyPath);
+    await readJson(whitelistedUserPath);
     serverReady = true;
     console.log('Server is fully initialized and ready to handle requests.');
   } catch (error) {
@@ -216,12 +232,10 @@ function monitorServer() {
       clearCache();
     }
 
-    // Optionally, restart the server based on certain conditions
     if (process.uptime() > 24 * 60 * 60) {
       console.log('Uptime exceeded 24 hours, restarting server.');
       restartServer();
     }
-
   }, 10 * 60 * 1000); // Every 10 minutes
 }
 
@@ -229,6 +243,6 @@ function monitorServer() {
 app.listen(port, () => {
   console.log(`Server running at http://localhost:${port}`);
   initializeServer().then(() => {
-    monitorServer(); // Start the monitoring only after initialization
+    monitorServer();
   });
 });
