@@ -158,6 +158,12 @@ function restartServer() {
   process.exit();
 }
 
+// Function to clear cache
+function clearCache() {
+  console.log('Clearing cache');
+  cache.flushAll();
+}
+
 // Periodically clear cache and restart server if needed
 function monitorServer() {
   setInterval(async () => {

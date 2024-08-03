@@ -169,9 +169,13 @@ async def whitelist(interaction: discord.Interaction, user: discord.User, expira
             expiration_str, expiration_date = calculate_expiration(expiration, datetime.utcnow())
 
             success_embed = discord.Embed(
-                title="Key Generated",
-                description=f"**User:** {user.name} ({user.id})\n**Key:** {new_key}\n**Expiration:** {expiration_str}\n**Reason:** {reason}",
-                color=discord.Color.green()
+                title="Key Service",
+                description = f"""**User:**\n{user.name} ({user.id})\n
+                           **Key:**\n<||{new_key}||>\n
+                           **Expiration:**\n{expiration_str}\n
+                           **Reason:**\n{reason}\n
+                           **Status:**\nWhitelisted"""
+                color=discord.Color.blue()
             )
             success_embed.set_footer(text=f"Requested at {datetime.utcnow().strftime('%Y-%m-%d %H:%M:%S')} UTC")
             success_embed.set_image(url=images["whitelist"])
@@ -183,8 +187,12 @@ async def whitelist(interaction: discord.Interaction, user: discord.User, expira
 
                 confirmation_embed = discord.Embed(
                     title="Whitelisting Success",
-                    description=f"**User:** {user.name} ({user.id})\n**Key:** {new_key}\n**Expiration:** {expiration_str}\n**Reason:** {reason}",
-                    color=discord.Color.green()
+                    description = f"""**User:**\n{user.name} ({user.id})\n
+                           **Key:**\n<||{new_key}||>\n
+                           **Expiration:**\n{expiration_str}\n
+                           **Reason:**\n{reason}\n
+                           **Status:**\nWhitelisted")"""
+                           color=discord.Color.blue()
                 )
                 confirmation_embed.set_footer(text=f"Requested at {datetime.utcnow().strftime('%Y-%m-%d %H:%M:%S')} UTC")
                 confirmation_embed.set_image(url=images["whitelist"])
