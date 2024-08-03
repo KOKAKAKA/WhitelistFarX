@@ -170,7 +170,7 @@ function monitorServer() {
     // Implement logic to clear cache if needed
     clearCache();
     // Optionally, restart the server based on certain conditions
-  }, 10 * 60 * 1000); // Every 10 minutes
+  }, 5 * 60 * 1000); // Every 10 minutes
 }
 
 // Start the server
