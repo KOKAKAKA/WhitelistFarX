@@ -6,15 +6,29 @@ const NodeCache = require('node-cache');
 const AsyncLock = require('async-lock');
 const { exec } = require('child_process');
 const process = require('process');
+const morgan = require('morgan');
+const rateLimit = require('express-rate-limit');
+const os = require('os');
 
 const app = express();
 const port = 18635;
 const storedKeyPath = path.join(__dirname, 'StoredKey.json');
-const cache = new NodeCache({ stdTTL: 60 });
+const cache = new NodeCache({ stdTTL: 60, checkperiod: 120 });
 const lock = new AsyncLock();
 const restartScriptPath = path.join(__dirname, 'restart.js');
 
-app.use(express.json()); // For parsing application/json
+let serverReady = false;
+
+// Middleware for JSON parsing and logging
+app.use(express.json());
+app.use(morgan('combined'));
+
+// Rate limiting middleware to prevent abuse
+const limiter = rateLimit({
+  windowMs: 15 * 60 * 1000, // 15 minutes
+  max: 100, // limit each IP to 100 requests per windowMs
+});
+app.use(limiter);
 
 // Utility function to read JSON file with locking
 async function readJson(filePath) {
@@ -45,6 +59,15 @@ async function writeJson(filePath, data) {
     }
   });
 }
+
+// Middleware to handle server initialization
+app.use((req, res, next) => {
+  if (!serverReady) {
+    res.status(503).json({ success: false, message: 'Server is warming up, please try again later.' });
+  } else {
+    next();
+  }
+});
 
 // Endpoint to generate a new key
 app.post('/generate-key', async (req, res) => {
@@ -143,6 +166,18 @@ app.get('/KeyRaw', async (req, res) => {
   }
 });
 
+// Function to initialize the server
+async function initializeServer() {
+  try {
+    // Perform any necessary initialization tasks here
+    await readJson(storedKeyPath); // Ensure the file is read and cached
+    serverReady = true;
+    console.log('Server is fully initialized and ready to handle requests.');
+  } catch (error) {
+    console.error(`Error during server initialization: ${error.message}`);
+  }
+}
+
 // Function to restart the server
 function restartServer() {
   console.log('Restarting server.');
@@ -164,17 +199,36 @@ function clearCache() {
   cache.flushAll();
 }
 
-// Periodically clear cache and restart server if needed
+// Health check endpoint
+app.get('/health', (req, res) => {
+  res.send('Server is running');
+});
+
+// Monitor and manage server performance
 function monitorServer() {
   setInterval(async () => {
-    // Implement logic to clear cache if needed
-    clearCache();
+    const freeMemory = os.freemem();
+    const totalMemory = os.totalmem();
+    const memoryUsage = ((totalMemory - freeMemory) / totalMemory) * 100;
+
+    if (memoryUsage > 80) {
+      console.log('High memory usage detected, clearing cache.');
+      clearCache();
+    }
+
     // Optionally, restart the server based on certain conditions
-  }, 5 * 60 * 1000); // Every 10 minutes
+    if (process.uptime() > 24 * 60 * 60) {
+      console.log('Uptime exceeded 24 hours, restarting server.');
+      restartServer();
+    }
+
+  }, 10 * 60 * 1000); // Every 10 minutes
 }
 
 // Start the server
 app.listen(port, () => {
   console.log(`Server running at http://localhost:${port}`);
-  monitorServer(); // Start the monitoring
+  initializeServer().then(() => {
+    monitorServer(); // Start the monitoring only after initialization
+  });
 });
