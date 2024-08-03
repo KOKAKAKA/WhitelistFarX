@@ -12,11 +12,14 @@ const os = require('os');
 
 const app = express();
 const port = 18635;
-const storedKeyPath = path.join(__dirname, 'StoredKey.json');
+
+// Define file paths
+const storedKeyPath = path.join('/storage/emulated/0/download/TermuxS/WhitelistFarX', 'StoredKey.json');
 const whitelistedUserPath = path.join('/storage/emulated/0/download/TermuxS', 'WhitelistedUser.json');
+
 const cache = new NodeCache({ stdTTL: 60, checkperiod: 120 });
 const lock = new AsyncLock();
-const restartScriptPath = path.join(__dirname, 'restart.js');
+const restartScriptPath = path.join('/storage/emulated/0/download/TermuxS', 'restart.js');
 
 let serverReady = false;
 
@@ -31,7 +34,7 @@ const limiter = rateLimit({
 });
 app.use(limiter);
 
-// Utility function to read JSON file with locking
+// Utility function to read JSON file with locking and caching
 async function readJson(filePath) {
   return lock.acquire('fileLock', async () => {
     if (cache.has(filePath)) {
@@ -43,20 +46,20 @@ async function readJson(filePath) {
       cache.set(filePath, jsonData);
       return jsonData;
     } catch (error) {
-      console.error(`Error reading file from ${filePath}: ${error.message}`);
+      console.error(`Error reading file ${filePath}: ${error.message}`);
       return {};
     }
   });
 }
 
-// Utility function to write JSON file with locking
+// Utility function to write JSON file with locking and caching
 async function writeJson(filePath, data) {
   return lock.acquire('fileLock', async () => {
     try {
       await fs.writeFile(filePath, JSON.stringify(data, null, 2));
       cache.set(filePath, data);
     } catch (error) {
-      console.error(`Error writing file to ${filePath}: ${error.message}`);
+      console.error(`Error writing file ${filePath}: ${error.message}`);
     }
   });
 }
