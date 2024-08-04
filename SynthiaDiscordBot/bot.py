@@ -138,39 +138,45 @@ async def update_role_and_key(user_id: int, remove_role: bool = False):
         except (IOError, json.JSONDecodeError) as e:
             print(f'Error handling WhitelistedUser.json: {e}')
 
-def update_whitelist_file(user_id: int, key: str, expiration: str, reason: str, request_time: datetime):
-    file_path = 'WhitelistedUser.json'
-    users_data = {}
+import os
+import json
+from datetime import datetime
 
-    # Ensure the file exists
-    if not os.path.exists(file_path):
-        with open(file_path, 'w') as file:
-            json.dump(users_data, file, indent=4)
-    else:
+def update_whitelist_file(user_id, key, expiration, reason, created):
+    file_path = 'WhitelistedUser.json'
+    
+    # Check if the file exists and is not empty
+    if os.path.exists(file_path) and os.path.getsize(file_path) > 0:
         try:
             with open(file_path, 'r') as file:
                 users_data = json.load(file)
-        except (IOError, json.JSONDecodeError) as e:
-            print(f'Error loading WhitelistedUser.json: {e}')
+                print(f"Current users_data before update: {users_data}")
+        except json.JSONDecodeError:
+            print("Error loading WhitelistedUser.json: Invalid JSON format. Initializing as an empty JSON object.")
             users_data = {}
+    else:
+        print("WhitelistedUser.json does not exist or is empty. Initializing as an empty JSON object.")
+        users_data = {}
 
-    print(f"Current users_data before update: {users_data}")
-
-    users_data[str(user_id)] = {
+    # Update the user's data
+    users_data[user_id] = {
         'key': key,
         'expiration': expiration,
         'reason': reason,
-        'created': request_time.strftime('%Y-%m-%d %H:%M:%S UTC'),
+        'created': created.strftime('%Y-%m-%d %H:%M:%S UTC'),
         'status': 'Whitelisted'
     }
-
-    try:
-        # Write changes to the file
-        with open(file_path, 'w') as file:
-            json.dump(users_data, file, indent=4)
-        print(f"Updated users_data: {users_data}")
-    except IOError as e:
-        print(f'Error writing WhitelistedUser.json: {e}')
+    
+    # Write the updated data back to the file
+    with open(file_path, 'w') as file:
+        json.dump(users_data, file, indent=4)
+    
+    print(f"Updated users_data: {users_data}")
+    
+    # Verify the file contents after update
+    with open(file_path, 'r') as file:
+        updated_data = json.load(file)
+        print(f"WhitelistedUser.json contents: {updated_data}")
 
 @bot.tree.command(name="whitelist", description="Whitelist a user and generate a key")
 @app_commands.describe(user="The user to whitelist", expiration="Expiration time (e.g., 1d, 2h, 1m, 30s, never)", reason="Reason for whitelisting")
