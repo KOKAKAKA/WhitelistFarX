@@ -3,7 +3,7 @@ from discord.ext import commands
 from discord import app_commands, ButtonStyle, Interaction
 from discord.ui import Button, View
 import subprocess
-from datetime import datetime
+from datetime import datetime, timedelta
 import json
 import os
 import time
@@ -21,7 +21,7 @@ if BOT_TOKEN is None:
     raise ValueError("BOT_TOKEN is not set in SavedToken.json.")
 
 intents = discord.Intents.default()
-intents.members = True  # Enable the members intent to manage roles
+intents.members = True
 bot = commands.Bot(command_prefix="!", intents=intents)
 
 # The ID of the server where the bot is allowed to operate
@@ -44,7 +44,7 @@ images = {
 async def on_ready():
     print(f'Logged in as {bot.user.name} ({bot.user.id})')
     try:
-        synced = await bot.tree.sync()  # Syncs the commands with Discord
+        synced = await bot.tree.sync()
         print(f'Synced {len(synced)} command(s)')
     except Exception as e:
         print(e)
@@ -55,20 +55,21 @@ def is_whitelist_admin(member: discord.Member) -> bool:
 def calculate_expiration(expiration: str, now: datetime) -> (str, datetime):
     if expiration.lower() == 'never':
         return 'Never', None
-    if expiration.endswith('d'):
-        days = int(expiration[:-1])
-        expiration_date = now + timedelta(days=days)
-    elif expiration.endswith('h'):
-        hours = int(expiration[:-1])
-        expiration_date = now + timedelta(hours=hours)
-    elif expiration.endswith('m'):
-        minutes = int(expiration[:-1])
-        expiration_date = now + timedelta(minutes=minutes)
-    elif expiration.endswith('s'):
-        seconds = int(expiration[:-1])
-        expiration_date = now + timedelta(seconds=seconds)
+
+    duration, unit = expiration[:-1], expiration[-1]
+    duration = int(duration)
+
+    if unit == 'd':
+        expiration_date = now + timedelta(days=duration)
+    elif unit == 'h':
+        expiration_date = now + timedelta(hours=duration)
+    elif unit == 'm':
+        expiration_date = now + timedelta(minutes=duration)
+    elif unit == 's':
+        expiration_date = now + timedelta(seconds=duration)
     else:
         return 'Invalid format', None
+
     return expiration_date.strftime('%Y-%m-%d %H:%M:%S UTC'), expiration_date
 
 def run_curl_command(url: str, method: str = 'GET', data: dict = None) -> dict:
@@ -80,20 +81,18 @@ def run_curl_command(url: str, method: str = 'GET', data: dict = None) -> dict:
     retries = 5
     for attempt in range(retries):
         try:
-            print(f'Running command: {" ".join(command)}')  # Print the curl command for debugging
-            result = subprocess.run(command, capture_output=True, text=True, timeout=2)
-            print(f'Command output: {result.stdout}')  # Print the output for debugging
-            print(f'Command error: {result.stderr}')  # Print any errors for debugging
+            print(f'Running command: {" ".join(command)}')
+            result = subprocess.run(command, capture_output=True, text=True, timeout=5)
+            print(f'Command output: {result.stdout}')
+            print(f'Command error: {result.stderr}')
 
             if result.returncode != 0:
                 raise Exception(f'curl error: {result.stderr}')
 
-            # Handle the response format
             response = result.stdout.strip()
             if response.startswith("return "):
-                response = response[7:]  # Remove "return " prefix
+                response = response[7:]
 
-            # Attempt to correct the non-standard JSON format
             corrected_output = response.replace("'", "\"")
             try:
                 return json.loads(corrected_output)
@@ -102,7 +101,7 @@ def run_curl_command(url: str, method: str = 'GET', data: dict = None) -> dict:
         
         except subprocess.TimeoutExpired:
             print(f"Attempt {attempt + 1} of {retries} timed out. Retrying...")
-            time.sleep(1)  # Optional: add a small delay before retrying
+            time.sleep(1)
 
     raise Exception("Max retries reached. Failed to complete the curl command.")
 
@@ -112,29 +111,36 @@ async def update_role_and_key(user_id: int, remove_role: bool = False):
         member = guild.get_member(user_id)
         if member:
             role = guild.get_role(WHITELIST_ROLE_ID)
-            if role and remove_role:
-                await member.remove_roles(role)
-                
-    # Remove key from storage
-    with open('WhitelistedUser.json', 'r+') as file:
-        users_data = json.load(file)
-        if str(user_id) in users_data:
-            del users_data[str(user_id)]
-            file.seek(0)
-            json.dump(users_data, file, indent=4)
-            file.truncate()
+            if role:
+                if remove_role:
+                    await member.remove_roles(role)
+                else:
+                    await member.add_roles(role)
+
+    file_path = 'WhitelistedUser.json'
+    if os.path.exists(file_path):
+        try:
+            with open(file_path, 'r+') as file:
+                users_data = json.load(file)
+                if str(user_id) in users_data:
+                    del users_data[str(user_id)]
+                    file.seek(0)
+                    json.dump(users_data, file, indent=4)
+                    file.truncate()
+        except (IOError, json.JSONDecodeError) as e:
+            print(f'Error handling WhitelistedUser.json: {e}')
 
 def update_whitelist_file(user_id: int, key: str, expiration: str, reason: str, request_time: datetime):
     file_path = 'WhitelistedUser.json'
-    
-    # Load existing data
-    if os.path.exists(file_path):
-        with open(file_path, 'r') as file:
-            users_data = json.load(file)
-    else:
-        users_data = {}
+    users_data = {}
 
-    # Add or update user data
+    if os.path.exists(file_path):
+        try:
+            with open(file_path, 'r') as file:
+                users_data = json.load(file)
+        except (IOError, json.JSONDecodeError) as e:
+            print(f'Error loading WhitelistedUser.json: {e}')
+
     users_data[str(user_id)] = {
         'key': key,
         'expiration': expiration,
@@ -143,9 +149,11 @@ def update_whitelist_file(user_id: int, key: str, expiration: str, reason: str, 
         'status': 'Whitelisted'
     }
 
-    # Write updated data back to the file
-    with open(file_path, 'w') as file:
-        json.dump(users_data, file, indent=4)
+    try:
+        with open(file_path, 'w') as file:
+            json.dump(users_data, file, indent=4)
+    except IOError as e:
+        print(f'Error writing WhitelistedUser.json: {e}')
 
 @bot.tree.command(name="whitelist", description="Whitelist a user and generate a key")
 @app_commands.describe(user="The user to whitelist", expiration="Expiration time (e.g., 1d, 2h, 1m, 30s, never)", reason="Reason for whitelisting")
@@ -158,8 +166,7 @@ async def whitelist(interaction: discord.Interaction, user: discord.User, expira
         await interaction.response.send_message("You do not have permission to use this command.", ephemeral=True)
         return
 
-    # Acknowledge the interaction
-    await interaction.response.defer()
+    await interaction.response.send_message("Thinking...", ephemeral=True)
 
     try:
         url = "http://localhost:18635/generate-key"
@@ -167,8 +174,6 @@ async def whitelist(interaction: discord.Interaction, user: discord.User, expira
         
         if data.get('success'):
             new_key = data['key']
-
-            # Calculate expiration date
             expiration_str, expiration_date = calculate_expiration(expiration, datetime.utcnow())
 
             embed = discord.Embed(
@@ -182,13 +187,7 @@ async def whitelist(interaction: discord.Interaction, user: discord.User, expira
             try:
                 await user.send(embed=embed)
                 update_whitelist_file(user.id, new_key, expiration_str, reason, datetime.utcnow())
-
-                guild = interaction.guild
-                member = guild.get_member(user.id)
-                if member:
-                    role = guild.get_role(WHITELIST_ROLE_ID)
-                    if role:
-                        await member.add_roles(role)
+                await update_role_and_key(user.id)
                 
                 success_embed = discord.Embed(
                     title="Whitelisting Success",
@@ -205,9 +204,7 @@ async def whitelist(interaction: discord.Interaction, user: discord.User, expira
     except ValueError as e:
         await interaction.followup.send(f'Error: {e}', ephemeral=True)
     except Exception as e:
-        await interaction.followup.send(f'Unexpected error: {e}', ephemeral=True)
-
-# Similarly update other commands
+        await interaction.followup.send(f'An unexpected error occurred: {e}', ephemeral=True)
 
 @bot.tree.command(name="deletekey", description="Delete a key from the server")
 @app_commands.describe(key="The key to delete")
