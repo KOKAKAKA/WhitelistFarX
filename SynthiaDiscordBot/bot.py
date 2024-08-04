@@ -272,17 +272,16 @@ async def delete_key(interaction: discord.Interaction, key: str):
 
                         for user_id in users_to_remove:
                             del users_data[user_id]
-                            await update_role_and_key(int(user_id), remove_role=True)
+                            await update_role_and_key(int(user_id), remove_role=True)  # Ensure this is awaited correctly
 
                         file.seek(0)
                         json.dump(users_data, file, indent=4)
                         file.truncate()
 
-                    await interaction.followup.send(f"Key '{key}' has been deleted and role removed from whitelisted users.", ephemeral=True)
                 except (IOError, json.JSONDecodeError) as e:
-                    await interaction.followup.send(f'Error handling WhitelistedUser.json: {e}', ephemeral=True)
-            else:
-                await interaction.followup.send("Whitelist file not found.", ephemeral=True)
+                    print(f'Error handling WhitelistedUser.json: {e}')
+
+            await interaction.followup.send(f"Key '{key}' has been deleted and role removed from whitelisted users.", ephemeral=True)
         else:
             await interaction.followup.send(f"Failed to delete the key '{key}'.", ephemeral=True)
     except Exception as e:
