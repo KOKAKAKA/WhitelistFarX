@@ -1,12 +1,14 @@
 import discord
 from discord.ext import commands
-from discord import app_commands, ButtonStyle, Interaction
-from discord.ui import Button, View
-import subprocess
+from discord import app_commands
 from datetime import datetime, timedelta
 import json
 import os
 import time
+import logging
+
+# Configure logging
+logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 
 # Load bot token from SavedToken.json
 def load_token():
@@ -45,12 +47,12 @@ images = {
 
 @bot.event
 async def on_ready():
-    print(f'Logged in as {bot.user.name} ({bot.user.id})')
+    logging.info(f'Logged in as {bot.user.name} ({bot.user.id})')
     try:
         synced = await bot.tree.sync()
-        print(f'Synced {len(synced)} command(s)')
+        logging.info(f'Synced {len(synced)} command(s)')
     except Exception as e:
-        print(f'Error syncing commands: {e}')
+        logging.error(f'Error syncing commands: {e}')
 
 def is_whitelist_admin(member: discord.Member) -> bool:
     return WHITELIST_ADMIN_ROLE_ID in [role.id for role in member.roles]
@@ -85,10 +87,10 @@ def run_curl_command(url: str, method: str = 'GET', data: dict = None) -> dict:
     retries = 5
     for attempt in range(retries):
         try:
-            print(f'Running command: {" ".join(command)}')
+            logging.info(f'Running command: {" ".join(command)}')
             result = subprocess.run(command, capture_output=True, text=True, timeout=5)
-            print(f'Command output: {result.stdout}')
-            print(f'Command error: {result.stderr}')
+            logging.info(f'Command output: {result.stdout}')
+            logging.error(f'Command error: {result.stderr}')
 
             if result.returncode != 0:
                 raise Exception(f'curl error: {result.stderr}')
@@ -101,10 +103,10 @@ def run_curl_command(url: str, method: str = 'GET', data: dict = None) -> dict:
             return json.loads(corrected_output)
         
         except subprocess.TimeoutExpired:
-            print(f"Attempt {attempt + 1} of {retries} timed out. Retrying...")
+            logging.warning(f"Attempt {attempt + 1} of {retries} timed out. Retrying...")
             time.sleep(1)
         except json.JSONDecodeError:
-            print(f'JSON decoding failed for response: {corrected_output}')
+            logging.error(f'JSON decoding failed for response: {corrected_output}')
 
     raise Exception("Max retries reached. Failed to complete the curl command.")
 
@@ -117,73 +119,67 @@ async def update_role_and_key(user_id: int, remove_role: bool = False):
             if role:
                 try:
                     if remove_role:
-                        print(f"Removing role {role.id} from member {user_id}.")
                         await member.remove_roles(role)
                     else:
-                        print(f"Adding role {role.id} to member {user_id}.")
                         await member.add_roles(role)
+                    logging.info(f"Role {'removed from' if remove_role else 'added to'} user {user_id}.")
                 except discord.Forbidden:
-                    print(f"Insufficient permissions to modify roles for member {user_id}.")
+                    logging.error(f"Insufficient permissions to modify roles for member {user_id}.")
                 except discord.HTTPException as e:
-                    print(f"HTTP exception occurred while modifying roles: {e}")
+                    logging.error(f"HTTP exception occurred while modifying roles: {e}")
 
     file_path = 'WhitelistedUser.json'
     if os.path.exists(file_path):
         try:
             with open(file_path, 'r+') as file:
                 users_data = json.load(file)
-                print(f"Users data before removal: {users_data}")
                 if str(user_id) in users_data:
-                    if not remove_role:
-                        print(f"Removing user {user_id} from whitelist.")
-                        del users_data[str(user_id)]
-                        file.seek(0)
-                        json.dump(users_data, file, indent=4)
-                        file.truncate()
-                        print(f"Updated whitelist file after removal: {users_data}")
+                    del users_data[str(user_id)]
+                    file.seek(0)
+                    json.dump(users_data, file, indent=4)
+                    file.truncate()
+                    logging.info(f"Removed user {user_id} from whitelist.")
         except (IOError, json.JSONDecodeError) as e:
-            print(f'Error handling WhitelistedUser.json: {e}')
+            logging.error(f'Error handling WhitelistedUser.json: {e}')
 
-def update_whitelist_file(user_id: int, key: str, expiration: str, reason: str, request_time: datetime):
-    file_path = 'WhitelistedUser.json'
-    users_data = {}
-
-    # Ensure the file exists
-    if not os.path.exists(file_path):
-        with open(file_path, 'w') as file:
-            json.dump(users_data, file, indent=4)
-    else:
-        try:
-            with open(file_path, 'r') as file:
-                users_data = json.load(file)
-        except (IOError, json.JSONDecodeError) as e:
-            print(f'Error loading WhitelistedUser.json: {e}')
-            users_data = {}
-
-    print(f"Current users_data before update: {users_data}")
-
-    users_data[str(user_id)] = {
-        'key': key,
-        'expiration': expiration,
-        'reason': reason,
-        'created': request_time.strftime('%Y-%m-%d %H:%M:%S UTC'),
-        'status': 'Whitelisted'
-    }
-
+def update_whitelist_file(user_id, key, expiration, reason, created):
     try:
-        # Write changes to the file
-        with open(file_path, 'w') as file:
+        # Load existing data
+        if os.path.exists('WhitelistedUser.json'):
+            with open('WhitelistedUser.json', 'r') as file:
+                users_data = json.load(file)
+        else:
+            users_data = {}
+        
+        # Update data
+        users_data[user_id] = {
+            'key': key,
+            'expiration': expiration,
+            'reason': reason,
+            'created': created,
+            'status': 'Whitelisted'
+        }
+        
+        # Write updated data
+        with open('WhitelistedUser.json', 'w') as file:
             json.dump(users_data, file, indent=4)
-        print(f"Updated users_data: {users_data}")
+    
+    except FileNotFoundError as e:
+        logging.error(f'File not found: {e}')
+        raise
     except IOError as e:
-        print(f'Error writing WhitelistedUser.json: {e}')
+        logging.error(f'I/O error occurred: {e}')
+        raise
+    except Exception as e:
+        logging.error(f'Unexpected error: {e}')
+        raise
 
 def is_key_valid(key):
     try:
         hwid_data = run_curl_command("http://localhost:18635/fetch-keys-hwids")
         return key in hwid_data
     except Exception as e:
-        print(f"Error checking key validity: {e}")
+        logging.error(f"Error checking key validity: {e}")
         return False
 
 @bot.tree.command(name="whitelist", description="Whitelist a user and generate a key")
@@ -202,7 +198,7 @@ async def whitelist(interaction: discord.Interaction, user: discord.User, expira
     try:
         url = "http://localhost:18635/generate-key"
         data = run_curl_command(url, method='POST')
-        
+
         if data.get('success'):
             new_key = data['key']
             expiration_str, expiration_date = calculate_expiration(expiration, datetime.utcnow())
@@ -217,32 +213,21 @@ async def whitelist(interaction: discord.Interaction, user: discord.User, expira
 
             try:
                 await user.send(embed=embed)
-                print(f"Updating whitelist file for user {user.id} with key {new_key}")
-                update_whitelist_file(user.id, new_key, expiration_str, reason, datetime.utcnow())
-                
-                # Verify the file contents after update
-                with open('WhitelistedUser.json', 'r') as file:
-                    updated_data = json.load(file)
-                    print(f"WhitelistedUser.json contents: {updated_data}")
-
-                success_embed = discord.Embed(
-                    title="Whitelisting Success",
-                    description=f"**User:**\n{user.name} ({user.id})\n**Key:**\n{new_key}\n**Expiration:**\n{expiration_str}\n**Reason:**\n{reason}",
-                    color=discord.Color.green()
-                )
-                success_embed.set_image(url=images["whitelist"])
-                await interaction.followup.send(embed=success_embed, ephemeral=True)
+                logging.info(f"Updating whitelist file for user {user.id}")
+                created = datetime.utcnow().strftime('%Y-%m-%d %H:%M:%S UTC')
+                update_whitelist_file(str(user.id), new_key, expiration_str, reason, created)
+                await update_role_and_key(user.id)
+                await interaction.followup.send(embed=embed, ephemeral=True)
             except discord.Forbidden:
-                await interaction.followup.send("Unable to send DM to the user.", ephemeral=True)
+                await interaction.followup.send("I can't send a message to the user. They might have DMs disabled.", ephemeral=True)
             except Exception as e:
-                await interaction.followup.send(f"Error occurred while whitelisting user: {e}", ephemeral=True)
-                print(f"Error sending message or updating role: {e}")
+                logging.error(f"Error sending DM or updating whitelist: {e}")
+                await interaction.followup.send("An error occurred while processing the whitelisting request.", ephemeral=True)
         else:
+            logging.error("Key generation failed.")
             await interaction.followup.send("Failed to generate a key.", ephemeral=True)
     except Exception as e:
-        await interaction.followup.send(f"Error occurred while processing whitelist: {e}", ephemeral=True)
-        print(f"Error generating key or running curl command: {e}")
-
-# Add more commands and functionality as needed
+        logging.error(f"An error occurred while processing the whitelisting request: {e}")
+        await interaction.followup.send("An error occurred while processing the whitelisting request.", ephemeral=True)
 
 bot.run(BOT_TOKEN)
