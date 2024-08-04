@@ -10,10 +10,16 @@ COOLDOWN_PERIOD=1
 cd "$DIR_TO_MONITOR" || { echo "Directory $DIR_TO_MONITOR not found"; exit 1; }
 
 while true; do
+    # Check if index.lock file exists
+    if [ -f ".git/index.lock" ]; then
+        echo "Git index.lock file exists. Skipping update..."
+        sleep $COOLDOWN_PERIOD
+        continue
+    fi
+
     # Check for changes
     CHANGES=$(git status --porcelain)
 
-    # Debug output to verify status checking
     echo "Checking for changes..."
     echo "Git Status Output:"
     echo "$CHANGES"
