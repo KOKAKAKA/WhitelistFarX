@@ -15,7 +15,7 @@ const port = 18635;
 const storedKeyPath = path.join(__dirname, 'StoredKey.json');
 const cache = new NodeCache({ stdTTL: 60, checkperiod: 120 });
 const lock = new AsyncLock();
-const restartScriptPath = path.join(__dirname, 'restart.js');
+const restartScriptPath = 'restart.js';
 
 let serverReady = false;
 
@@ -181,18 +181,25 @@ async function initializeServer() {
 // Function to restart the server
 function restartServer() {
   console.log('Restarting server.');
-  exec(`node ${restartScriptPath}`, (error, stdout, stderr) => {
-    if (error) {
-      console.error(`Error executing restart script: ${error.message}`);
-    }
-    if (stderr) {
-      console.error(`Restart script stderr: ${stderr}`);
-    }
-    console.log(`Restart script stdout: ${stdout}`);
-  });
-  process.exit();
-}
 
+  // Exit the process after a short delay to ensure proper shutdown
+  setTimeout(() => {
+    // Run the restart script
+    exec(`node ${restartScriptPath}`, (error, stdout, stderr) => {
+      if (error) {
+        console.error(`Error executing restart script: ${error.message}`);
+        return;
+      }
+      if (stderr) {
+        console.error(`Restart script stderr: ${stderr}`);
+      }
+      console.log(`Restart script stdout: ${stdout}`);
+    });
+
+    // Ensure process exits after the script is started
+    process.exit();
+  }, 1000); // 1-second delay
+}
 // Function to clear cache
 function clearCache() {
   console.log('Clearing cache');
@@ -217,12 +224,12 @@ function monitorServer() {
     }
 
     // Optionally, restart the server based on certain conditions
-    if (process.uptime() > 24 * 60 * 60) {
+    if (process.uptime() > 1 * 30 * 60) {
       console.log('Uptime exceeded 24 hours, restarting server.');
       restartServer();
     }
 
-  }, 10 * 60 * 1000); // Every 10 minutes
+  }, 5 * 60 * 1000); // Every 10 minutes
 }
 
 // Start the server
