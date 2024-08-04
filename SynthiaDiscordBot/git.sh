@@ -4,7 +4,7 @@
 DIR_TO_MONITOR="/storage/emulated/0/download/TermuxS"
 
 # Path to the last update timestamp file
-TIMESTAMP_FILE="stamp.txt"
+TIMESTAMP_FILE="/SynthiaDiscordBot/stamp.txt"
 
 # Cooldown period in seconds (1 minute)
 COOLDOWN_PERIOD=60
@@ -31,7 +31,7 @@ while true; do
         
         # Your update logic here
         # Example: git pull, etc.
-        git add "$DIR_TO_MONITOR"
+        git add .
         git commit -m "Updated $action $file"
         git push origin main
         # Update the last update timestamp
