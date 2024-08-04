@@ -1,0 +1,17 @@
+html, body {
+    margin: 0;
+    padding: 0;
+    height: 100%;
+    overflow: hidden; /* Hide scrollbars */
+}
+
+.background-container {
+    width: 430px; /* Fixed width */
+    height: 1000px; /* Fixed height */
+    background: url('https://i.imgur.com/EliDkTf.gif') no-repeat center center;
+    background-size: cover; /* Scale the background image to cover the container */
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%); /* Center the container */
+}
