@@ -190,7 +190,7 @@ async def whitelist(interaction: discord.Interaction, user: discord.User, expira
         await interaction.response.send_message("You do not have permission to use this command.", ephemeral=True)
         return
 
-    await interaction.response.send_message("Thinking...", ephemeral=True)
+    await interaction.response.defer()  # Acknowledge the interaction and give time for processing
 
     try:
         url = "http://localhost:18635/generate-key"
@@ -212,7 +212,7 @@ async def whitelist(interaction: discord.Interaction, user: discord.User, expira
                 await user.send(embed=embed)
                 print(f"Updating whitelist file for user {user.id} with key {new_key}")
                 update_whitelist_file(user.id, new_key, expiration_str, reason, datetime.utcnow())
-                
+
                 # Verify the file contents after update
                 with open('WhitelistedUser.json', 'r') as file:
                     updated_data = json.load(file)
