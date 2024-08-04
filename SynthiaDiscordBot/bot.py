@@ -217,11 +217,8 @@ async def whitelist(interaction: discord.Interaction, user: discord.User, expira
             except discord.Forbidden:
                 await interaction.followup.send("I can't send a message to the user. They might have DMs disabled.", ephemeral=True)
             except Exception as e:
-                print(f"Error updating whitelist file or sending message: {e}")
         else:
-            print(f"idk")
     except Exception as e:
-        print(f"An error occurred: {e}")
 
 @bot.tree.command(name="profile", description="Get the profile of a whitelisted user")
 @app_commands.describe(user="The user to get the profile of (admin only)")
