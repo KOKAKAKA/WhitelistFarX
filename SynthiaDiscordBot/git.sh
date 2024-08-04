@@ -4,7 +4,7 @@
 DIR_TO_MONITOR="/storage/emulated/0/download/TermuxS"
 
 # Cooldown period in seconds (1 minute)
-COOLDOWN_PERIOD=60
+COOLDOWN_PERIOD=1
 
 # Navigate to the monitored directory
 cd "$DIR_TO_MONITOR" || { echo "Directory $DIR_TO_MONITOR not found"; exit 1; }
@@ -28,9 +28,6 @@ while true; do
         # Commit and push changes
         git commit -m "$COMMIT_MESSAGE"
         git push origin main
-    else
-        echo "No changes detected."
-    fi
 
     # Sleep for a while before checking again
     sleep $COOLDOWN_PERIOD
