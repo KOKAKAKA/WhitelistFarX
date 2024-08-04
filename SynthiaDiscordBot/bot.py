@@ -175,18 +175,25 @@ def update_whitelist_file(user_id: int, key: str, expiration: str, reason: str, 
 @bot.tree.command(name="whitelist", description="Whitelist a user and generate a key")
 @app_commands.describe(user="The user to whitelist", expiration="Expiration time (e.g., 1d, 2h, 1m, 30s, never)", reason="Reason for whitelisting")
 async def whitelist(interaction: discord.Interaction, user: discord.User, expiration: str = "never", reason: str = "Not Specified"):
-    if interaction.guild.id != ALLOWED_GUILD_ID:
-        await interaction.response.send_message("This command can only be used in the specified server.", ephemeral=True)
-        return
-
-    if not is_whitelist_admin(interaction.user):
-        await interaction.response.send_message("You do not have permission to use this command.", ephemeral=True)
-        return
-
-    # Defer the response to avoid the interaction timeout issue
-    await interaction.response.defer(ephemeral=True)
-
     try:
+        # Log interaction start
+        print(f"Received whitelist command from {interaction.user.name} ({interaction.user.id})")
+
+        # Check if interaction is in the allowed guild
+        if interaction.guild.id != ALLOWED_GUILD_ID:
+            await interaction.response.send_message("This command can only be used in the specified server.", ephemeral=True)
+            return
+
+        # Check if the user has permission
+        if not is_whitelist_admin(interaction.user):
+            await interaction.response.send_message("You do not have permission to use this command.", ephemeral=True)
+            return
+
+        # Defer the response to avoid interaction timeout issue
+        await interaction.response.defer(ephemeral=True)
+        print("Deferred the interaction response")
+
+        # Perform the whitelisting operation
         url = "http://localhost:18635/generate-key"
         data = run_curl_command(url, method='POST')
         
@@ -204,6 +211,8 @@ async def whitelist(interaction: discord.Interaction, user: discord.User, expira
 
             try:
                 await user.send(embed=embed)
+                print(f"Sent DM to user {user.id} with key {new_key}")
+
                 print(f"Updating whitelist file for user {user.id} with key {new_key}")
                 update_whitelist_file(user.id, new_key, expiration_str, reason, datetime.utcnow())
                 
@@ -223,6 +232,7 @@ async def whitelist(interaction: discord.Interaction, user: discord.User, expira
                 success_embed.set_image(url=images["whitelist"])
 
                 await interaction.followup.send(embed=success_embed)
+                print("Sent followup message with success embed")
 
             except discord.HTTPException as e:
                 await interaction.followup.send(content="Failed to send DM to the user. However, the user is whitelisted and the key is generated.", ephemeral=True)
