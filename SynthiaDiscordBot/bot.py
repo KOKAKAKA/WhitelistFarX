@@ -8,6 +8,7 @@ import json
 import os
 import time
 import traceback
+import logging
 
 # Load bot token from SavedToken.json
 def load_token():
@@ -140,8 +141,6 @@ async def update_role_and_key(user_id: int, remove_role: bool = False):
         except (IOError, json.JSONDecodeError) as e:
             print(f'Error handling WhitelistedUser.json: {e}')
 
-import logging
-
 def update_whitelist_file(user_id, key, expiration, reason, created):
     try:
         # Load existing data
@@ -170,12 +169,6 @@ def update_whitelist_file(user_id, key, expiration, reason, created):
     except Exception as e:
         logging.error(f'Unexpected error: {e}')
         raise
-
-# Usage
-try:
-    update_whitelist_file(user.id, new_key, expiration_str, reason, datetime.utcnow())
-except Exception as e:
-    await interaction.followup.send(f'An unexpected error occurred: {e}', ephemeral=True)
 
 def is_key_valid(key):
     try:
@@ -216,30 +209,19 @@ async def whitelist(interaction: discord.Interaction, user: discord.User, expira
 
             try:
                 await user.send(embed=embed)
-                print(f"Updating whitelist file for user {user.id} with key {new_key}")
-                update_whitelist_file(user.id, new_key, expiration_str, reason, datetime.utcnow())
-
-                # Verify the file contents after update
-                with open('WhitelistedUser.json', 'r') as file:
-                    updated_data = json.load(file)
-                    print(f"WhitelistedUser.json contents: {updated_data}")
-
-                success_embed = discord.Embed(
-                    title="Whitelisting Success",
-                    description=f"**User:**\n{user.name} ({user.id})\n**Status:**\nWhitelisted\n**Key:**\n{new_key}\n**Expiration:**\n{expiration_str}\n**Reason:**\n{reason}",
-                    color=discord.Color.blue()
-                )
-                success_embed.set_footer(text=f"Requested at {datetime.utcnow().strftime('%Y-%m-%d %H:%M:%S')} UTC")
-                success_embed.set_image(url=images["whitelist"])
-                await interaction.followup.send(embed=success_embed, ephemeral=True)
+                print(f"Updating whitelist file for user {user.id}")
+                created = datetime.utcnow().strftime('%Y-%m-%d %H:%M:%S UTC')
+                update_whitelist_file(str(user.id), new_key, expiration_str, reason, created)
+                await update_role_and_key(user.id)
+                await interaction.followup.send(embed=embed, ephemeral=True)
             except discord.Forbidden:
-                await interaction.followup.send(f"Unable to send a DM to {user.name}.", ephemeral=True)
+                await interaction.followup.send("I can't send a message to the user. They might have DMs disabled.", ephemeral=True)
+            except Exception as e:
+                print(f"Error updating whitelist file or sending message: {e}")
         else:
-            print('Failed to generate a new key.')  # Log error internally
-    except ValueError as e:
-        print('Error: {e}')  # Log error internally
+            print(f"idk")
     except Exception as e:
-        print('An unexpected error occurred: {e}')  # Log error internally
+        print(f"An error occurred: {e}")
 
 @bot.tree.command(name="profile", description="Get the profile of a whitelisted user")
 @app_commands.describe(user="The user to get the profile of (admin only)")
