@@ -236,13 +236,10 @@ async def whitelist(interaction: discord.Interaction, user: discord.User, expira
                 await interaction.followup.send(f"Unable to send a DM to {user.name}.", ephemeral=True)
         else:
             print('Failed to generate a new key.')  # Log error internally
-            await interaction.followup.send('Failed to generate a new key.', ephemeral=True)
     except ValueError as e:
         print(f'Error: {e}')  # Log error internally
-        await interaction.followup.send('An error occurred while processing your request.', ephemeral=True)
     except Exception as e:
         print(f'An unexpected error occurred: {e}')  # Log error internally
-        await interaction.followup.send('An unexpected error occurred. Please try again later.', ephemeral=True)
 
 @bot.tree.command(name="profile", description="Get the profile of a whitelisted user")
 @app_commands.describe(user="The user to get the profile of (admin only)")
