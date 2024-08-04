@@ -142,48 +142,40 @@ async def update_role_and_key(user_id: int, remove_role: bool = False):
 
 import logging
 
-logging.basicConfig(level=logging.DEBUG, format='%(asctime)s - %(levelname)s - %(message)s')
-
-def update_whitelist_file(user_id: int, key: str, expiration: str, reason: str, request_time: datetime):
-    file_path = 'WhitelistedUser.json'
-    users_data = {}
-
-    logging.debug(f"Attempting to update file: {file_path}")
-
+def update_whitelist_file(user_id, key, expiration, reason, created):
     try:
-        if not os.path.exists(file_path):
-            logging.debug(f"File not found. Creating new file.")
-            with open(file_path, 'w') as file:
-                json.dump(users_data, file, indent=4)
-        else:
-            try:
-                with open(file_path, 'r') as file:
-                    users_data = json.load(file)
-            except (IOError, json.JSONDecodeError) as e:
-                logging.error(f'Error loading WhitelistedUser.json: {e}')
-                users_data = {}
-
-        logging.debug(f"Current users_data before update: {users_data}")
-
-        users_data[str(user_id)] = {
+        # Load existing data
+        with open('WhitelistedUser.json', 'r') as file:
+            users_data = json.load(file)
+        
+        # Update data
+        users_data[user_id] = {
             'key': key,
             'expiration': expiration,
             'reason': reason,
-            'created': request_time.strftime('%Y-%m-%d %H:%M:%S UTC'),
+            'created': created,
             'status': 'Whitelisted'
         }
-
-        try:
-            with open(file_path, 'w') as file:
-                json.dump(users_data, file, indent=4)
-            logging.debug(f"Updated users_data: {users_data}")
-        except IOError as e:
-            logging.error(f'Error writing WhitelistedUser.json: {e}')
-            raise
-
+        
+        # Write updated data
+        with open('WhitelistedUser.json', 'w') as file:
+            json.dump(users_data, file, indent=4)
+    
+    except FileNotFoundError as e:
+        logging.error(f'File not found: {e}')
+        raise
+    except IOError as e:
+        logging.error(f'I/O error occurred: {e}')
+        raise
     except Exception as e:
         logging.error(f'Unexpected error: {e}')
         raise
+
+# Usage
+try:
+    update_whitelist_file(user.id, new_key, expiration_str, reason, datetime.utcnow())
+except Exception as e:
+    await interaction.followup.send(f'An unexpected error occurred: {e}', ephemeral=True)
 
 def is_key_valid(key):
     try:
@@ -209,7 +201,7 @@ async def whitelist(interaction: discord.Interaction, user: discord.User, expira
     try:
         url = "http://localhost:18635/generate-key"
         data = run_curl_command(url, method='POST')
-        
+
         if data.get('success'):
             new_key = data['key']
             expiration_str, expiration_date = calculate_expiration(expiration, datetime.utcnow())
@@ -224,9 +216,14 @@ async def whitelist(interaction: discord.Interaction, user: discord.User, expira
 
             try:
                 await user.send(embed=embed)
-                logging.debug(f"Updating whitelist file for user {user.id} with key {new_key}")
+                print(f"Updating whitelist file for user {user.id} with key {new_key}")
                 update_whitelist_file(user.id, new_key, expiration_str, reason, datetime.utcnow())
-                
+
+                # Verify the file contents after update
+                with open('WhitelistedUser.json', 'r') as file:
+                    updated_data = json.load(file)
+                    print(f"WhitelistedUser.json contents: {updated_data}")
+
                 success_embed = discord.Embed(
                     title="Whitelisting Success",
                     description=f"**User:**\n{user.name} ({user.id})\n**Status:**\nWhitelisted\n**Key:**\n{new_key}\n**Expiration:**\n{expiration_str}\n**Reason:**\n{reason}",
@@ -238,12 +235,14 @@ async def whitelist(interaction: discord.Interaction, user: discord.User, expira
             except discord.Forbidden:
                 await interaction.followup.send(f"Unable to send a DM to {user.name}.", ephemeral=True)
         else:
+            print('Failed to generate a new key.')  # Log error internally
             await interaction.followup.send('Failed to generate a new key.', ephemeral=True)
     except ValueError as e:
-        await interaction.followup.send(f'Error: {e}', ephemeral=True)
+        print(f'Error: {e}')  # Log error internally
+        await interaction.followup.send('An error occurred while processing your request.', ephemeral=True)
     except Exception as e:
-        logging.error(f'Unexpected error: {e}')
-        await interaction.followup.send(f'An unexpected error occurred: {e}', ephemeral=True)
+        print(f'An unexpected error occurred: {e}')  # Log error internally
+        await interaction.followup.send('An unexpected error occurred. Please try again later.', ephemeral=True)
 
 @bot.tree.command(name="profile", description="Get the profile of a whitelisted user")
 @app_commands.describe(user="The user to get the profile of (admin only)")
