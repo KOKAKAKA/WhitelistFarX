@@ -194,7 +194,14 @@ async def whitelist(interaction: discord.Interaction, user: discord.User, expira
 
             try:
                 await user.send(embed=embed)
+                print(f"Updating whitelist file for user {user.id} with key {new_key}")
                 update_whitelist_file(user.id, new_key, expiration_str, reason, datetime.utcnow())
+                
+                # Verify the file contents after update
+                with open('WhitelistedUser.json', 'r') as file:
+                    updated_data = json.load(file)
+                    print(f"WhitelistedUser.json contents: {updated_data}")
+
                 await update_role_and_key(user.id)
                 
                 success_embed = discord.Embed(
