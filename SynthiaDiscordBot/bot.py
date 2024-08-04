@@ -204,7 +204,7 @@ async def whitelist(interaction: discord.Interaction, user: discord.User, expira
         await interaction.response.send_message("You do not have permission to use this command.", ephemeral=True)
         return
 
-    await interaction.response.defer()  # Use defer to indicate that you are processing
+    await interaction.response.send_message("Thinking...", ephemeral=True)
 
     try:
         url = "http://localhost:18635/generate-key"
@@ -224,15 +224,8 @@ async def whitelist(interaction: discord.Interaction, user: discord.User, expira
 
             try:
                 await user.send(embed=embed)
-                print(f"Updating whitelist file for user {user.id} with key {new_key}")
-
-                # Attempt to update whitelist file
-                try:
-                    update_whitelist_file(user.id, new_key, expiration_str, reason, datetime.utcnow())
-                except IOError as e:
-                    print(f'Error updating whitelist file: {e}')
-                    await interaction.followup.send(f'Error updating whitelist file: {e}', ephemeral=True)
-                    return
+                logging.debug(f"Updating whitelist file for user {user.id} with key {new_key}")
+                update_whitelist_file(user.id, new_key, expiration_str, reason, datetime.utcnow())
                 
                 success_embed = discord.Embed(
                     title="Whitelisting Success",
@@ -249,6 +242,7 @@ async def whitelist(interaction: discord.Interaction, user: discord.User, expira
     except ValueError as e:
         await interaction.followup.send(f'Error: {e}', ephemeral=True)
     except Exception as e:
+        logging.error(f'Unexpected error: {e}')
         await interaction.followup.send(f'An unexpected error occurred: {e}', ephemeral=True)
 
 @bot.tree.command(name="profile", description="Get the profile of a whitelisted user")
