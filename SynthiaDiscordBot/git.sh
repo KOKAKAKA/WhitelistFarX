@@ -4,7 +4,7 @@
 DIR_TO_MONITOR="/storage/emulated/0/download/TermuxS"
 
 # Path to the last update timestamp file
-TIMESTAMP_FILE="SynthiaDiscordBot/stamp.txt"
+TIMESTAMP_FILE="stamp.txt"
 
 # Cooldown period in seconds (1 minute)
 COOLDOWN_PERIOD=60
