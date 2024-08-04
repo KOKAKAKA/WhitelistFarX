@@ -172,6 +172,14 @@ def update_whitelist_file(user_id: int, key: str, expiration: str, reason: str, 
     except IOError as e:
         print(f'Error writing WhitelistedUser.json: {e}')
 
+def is_key_valid(key):
+    try:
+        hwid_data = run_curl_command("http://localhost:18635/fetch-keys-hwids")
+        return key in hwid_data
+    except Exception as e:
+        print(f"Error checking key validity: {e}")
+        return False
+
 @bot.tree.command(name="whitelist", description="Whitelist a user and generate a key")
 @app_commands.describe(user="The user to whitelist", expiration="Expiration time (e.g., 1d, 2h, 1m, 30s, never)", reason="Reason for whitelisting")
 async def whitelist(interaction: discord.Interaction, user: discord.User, expiration: str = "never", reason: str = "Not Specified"):
@@ -334,9 +342,20 @@ async def profile(interaction: discord.Interaction, user: discord.User = None):
                     users_data = json.load(file)
                 
                 # Clean up any stale entries
-                users_data = {uid: data for uid, data in users_data.items() if is_key_valid(data['key'])}
+                valid_users = {}
+                for uid, data in users_data.items():
+                    if is_key_valid(data['key']):
+                        valid_users[uid] = data
+                    else:
+                        # Update status to "Key Deleted" if key is invalid
+                        data['status'] = 'Key Deleted'
+                        valid_users[uid] = data
 
-                user_data = users_data.get(str(user.id))
+                # Save updated data with "Key Deleted" status
+                with open(file_path, 'w') as file:
+                    json.dump(valid_users, file, indent=4)
+
+                user_data = valid_users.get(str(user.id))
 
                 if user_data:
                     hwid_data = run_curl_command("http://localhost:18635/fetch-keys-hwids")
