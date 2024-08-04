@@ -16,7 +16,6 @@
     "express-rate-limit": "^7.4.0",
     "morgan": "^1.10.0",
     "node-cache": "^5.1.2",
-    "redis-cli": "^2.1.2",
     "uuid": "^10.0.0"
   }
 }
