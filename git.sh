@@ -18,4 +18,3 @@ inotifywait -m -r -e modify,create,delete "$WATCH_DIR" | while read -r path acti
     git commit -m "Automated commit for change: $action $file"
     git push origin main
 done
-
