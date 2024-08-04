@@ -326,107 +326,107 @@ async def profile(interaction: discord.Interaction, user: discord.User = None):
 
     await interaction.response.send_message("Thinking...", ephemeral=True)
 
-    file_path = 'WhitelistedUser.json'
-    if os.path.exists(file_path):
-        try:
-            with open(file_path, 'r') as file:
-                users_data = json.load(file)
-                print(f"Loaded users_data: {users_data}")  # Debug print
+    try:
+        file_path = 'WhitelistedUser.json'
+        if os.path.exists(file_path):
+            try:
+                with open(file_path, 'r') as file:
+                    users_data = json.load(file)
+                
+                # Clean up any stale entries
+                users_data = {uid: data for uid, data in users_data.items() if is_key_valid(data['key'])}
+
                 user_data = users_data.get(str(user.id))
 
-            if user_data:
-                hwid_data = run_curl_command("http://localhost:18635/fetch-keys-hwids")
-                hwid = hwid_data.get(user_data['key'], "Not Available")
+                if user_data:
+                    hwid_data = run_curl_command("http://localhost:18635/fetch-keys-hwids")
+                    hwid = hwid_data.get(user_data['key'], "Not Available")
 
-                embed = discord.Embed(
-                    title="User Profile",
-                    description=(
-                        f"**User:**\n{user.name} ({user.id})\n"
-                        f"**Key:**\n{user_data['key']}\n"
-                        f"**Expiration:**\n{user_data['expiration']}\n"
-                        f"**Reason:**\n{user_data['reason']}\n"
-                        f"**Created:**\n{user_data['created']}\n"
-                        f"**Status:**\n{user_data['status']}\n"
-                        f"**HWID:**\n{hwid}"
-                    ),
-                    color=discord.Color.blue()
-                )
-                embed.set_footer(text=f"Requested at {datetime.utcnow().strftime('%Y-%m-%d %H:%M:%S')} UTC")
-                embed.set_image(url=images["profile"])
+                    embed = discord.Embed(
+                        title="User Profile",
+                        description=f"**User:**\n{user.name} ({user.id})\n**Key:**\n{user_data['key']}\n**Expiration:**\n{user_data['expiration']}\n**Reason:**\n{user_data['reason']}\n**Created:**\n{user_data['created']}\n**Status:**\n{user_data['status']}\n**HWID:**\n{hwid}",
+                        color=discord.Color.blue()
+                    )
+                    embed.set_footer(text=f"Requested at {datetime.utcnow().strftime('%Y-%m-%d %H:%M:%S')} UTC")
+                    embed.set_image(url=images["profile"])
 
-                class ProfileButtons(View):
-                    @discord.ui.button(label="Reset HWID", style=ButtonStyle.red)
-                    async def reset_hwid_button(self, interaction: Interaction, button: Button):
-                        if interaction.user.id != user.id and not is_whitelist_admin(interaction.user):
-                            await interaction.response.send_message("You do not have permission to reset HWID for this user.", ephemeral=True)
-                            return
-                        await self.reset_hwid(interaction, user)
+                    class ProfileButtons(View):
+                        @discord.ui.button(label="Reset HWID", style=ButtonStyle.green)
+                        async def reset_hwid_button(self, interaction: Interaction, button: Button):
+                            if interaction.user.id != user.id and not is_whitelist_admin(interaction.user):
+                                await interaction.response.send_message("You do not have permission to reset HWID for this user.", ephemeral=True)
+                                return
+                            await self.reset_hwid(interaction, user)
 
-                    async def reset_hwid(self, interaction: Interaction, user: discord.User):
-                        url = "http://localhost:18635/reset-hwid"
-                        try:
-                            if os.path.exists(file_path):
-                                try:
-                                    with open(file_path, 'r') as file:
-                                        users_data = json.load(file)
-                                        user_key = users_data.get(str(user.id), {}).get('key')
+                        async def reset_hwid(self, interaction: Interaction, user: discord.User):
+                            url = "http://localhost:18635/reset-hwid"
+                            try:
+                                file_path = 'WhitelistedUser.json'
+                                if os.path.exists(file_path):
+                                    try:
+                                        with open(file_path, 'r') as file:
+                                            users_data = json.load(file)
+                                            user_key = users_data.get(str(user.id), {}).get('key')
 
-                                    if user_key:
-                                        data = run_curl_command(url, method='POST', data={"key": user_key})
+                                        if user_key:
+                                            data = run_curl_command(url, method='POST', data={"key": user_key})
 
-                                        if data.get('success'):
-                                            update_whitelist_file(user.id, user_key, users_data[str(user.id)]['expiration'], users_data[str(user.id)]['reason'], datetime.utcnow())
+                                            if data.get('success'):
+                                                update_whitelist_file(user.id, user_key, users_data[str(user.id)]['expiration'], users_data[str(user.id)]['reason'], datetime.utcnow())
 
-                                            await interaction.response.send_message(f"HWID for user {user.name} has been reset.", ephemeral=True)
+                                                await interaction.response.send_message(f"HWID for user {user.name} has been reset.", ephemeral=True)
+                                            else:
+                                                await interaction.response.send_message(f"Failed to reset HWID for user {user.name}.", ephemeral=True)
                                         else:
-                                            await interaction.response.send_message(f"Failed to reset HWID for user {user.name}.", ephemeral=True)
-                                    else:
-                                        await interaction.response.send_message(f"No key found for user {user.name}.", ephemeral=True)
-                                except (IOError, json.JSONDecodeError) as e:
-                                    await interaction.response.send_message(f'Error handling WhitelistedUser.json: {e}', ephemeral=True)
-                        except Exception as e:
-                            await interaction.response.send_message(f'Error: {e}', ephemeral=True)
+                                            await interaction.response.send_message(f"No key found for user {user.name}.", ephemeral=True)
+                                    except (IOError, json.JSONDecodeError) as e:
+                                        await interaction.response.send_message(f'Error handling WhitelistedUser.json: {e}', ephemeral=True)
+                            except Exception as e:
+                                await interaction.response.send_message(f'Error: {e}', ephemeral=True)
 
-                    @discord.ui.button(label="Delete Key", style=ButtonStyle.red)
-                    async def delete_key_button(self, interaction: Interaction, button: Button):
-                        if interaction.user.id != user.id and not is_whitelist_admin(interaction.user):
-                            await interaction.response.send_message("You do not have permission to delete this key.", ephemeral=True)
-                            return
-                        await self.delete_key(interaction, user)
+                        @discord.ui.button(label="Delete Key", style=ButtonStyle.red)
+                        async def delete_key_button(self, interaction: Interaction, button: Button):
+                            if interaction.user.id != user.id and not is_whitelist_admin(interaction.user):
+                                await interaction.response.send_message("You do not have permission to delete this key.", ephemeral=True)
+                                return
+                            await self.delete_key(interaction, user)
 
-                    async def delete_key(self, interaction: Interaction, user: discord.User):
-                        url = "http://localhost:18635/delete-key"
-                        try:
-                            if os.path.exists(file_path):
-                                try:
-                                    with open(file_path, 'r') as file:
-                                        users_data = json.load(file)
-                                        user_key = users_data.get(str(user.id), {}).get('key')
+                        async def delete_key(self, interaction: Interaction, user: discord.User):
+                            url = "http://localhost:18635/delete-key"
+                            try:
+                                file_path = 'WhitelistedUser.json'
+                                if os.path.exists(file_path):
+                                    try:
+                                        with open(file_path, 'r') as file:
+                                            users_data = json.load(file)
+                                            user_key = users_data.get(str(user.id), {}).get('key')
 
-                                    if user_key:
-                                        data = run_curl_command(url, method='POST', data={"key": user_key})
+                                        if user_key:
+                                            data = run_curl_command(url, method='POST', data={"key": user_key})
 
-                                        if data.get('success'):
-                                            await update_role_and_key(user.id, remove_role=True)
-                                            update_whitelist_file(user.id, user_key, users_data[str(user.id)]['expiration'], users_data[str(user.id)]['reason'], datetime.utcnow())
+                                            if data.get('success'):
+                                                await update_role_and_key(user.id, remove_role=True)
+                                                update_whitelist_file(user.id, user_key, users_data[str(user.id)]['expiration'], users_data[str(user.id)]['reason'], datetime.utcnow())
 
-                                            await interaction.response.send_message(f"Key for user {user.name} has been deleted.", ephemeral=True)
+                                                await interaction.response.send_message(f"Key for user {user.name} has been deleted.", ephemeral=True)
+                                            else:
+                                                await interaction.response.send_message(f"Failed to delete the key for user {user.name}.", ephemeral=True)
                                         else:
-                                            await interaction.response.send_message(f"Failed to delete the key for user {user.name}.", ephemeral=True)
-                                    else:
-                                        await interaction.response.send_message(f"No key found for user {user.name}.", ephemeral=True)
-                                except (IOError, json.JSONDecodeError) as e:
-                                    await interaction.response.send_message(f'Error handling WhitelistedUser.json: {e}', ephemeral=True)
-                        except Exception as e:
-                            await interaction.response.send_message(f'Error: {e}', ephemeral=True)
+                                            await interaction.response.send_message(f"No key found for user {user.name}.", ephemeral=True)
+                                    except (IOError, json.JSONDecodeError) as e:
+                                        await interaction.response.send_message(f'Error handling WhitelistedUser.json: {e}', ephemeral=True)
+                            except Exception as e:
+                                await interaction.response.send_message(f'Error: {e}', ephemeral=True)
 
-                view = ProfileButtons()
-                await interaction.followup.send(embed=embed, view=view, ephemeral=True)
-            else:
-                await interaction.followup.send(f"No data found for user {user.name}.", ephemeral=True)
-        except (IOError, json.JSONDecodeError) as e:
-            await interaction.followup.send(f'Error handling WhitelistedUser.json: {e}', ephemeral=True)
-    else:
-        await interaction.followup.send("Whitelist file not found.", ephemeral=True)
+                    view = ProfileButtons()
+                    await interaction.followup.send(embed=embed, view=view, ephemeral=True)
+                else:
+                    await interaction.followup.send(f"No data found for user {user.name}.", ephemeral=True)
+            except (IOError, json.JSONDecodeError) as e:
+                await interaction.followup.send(f'Error handling WhitelistedUser.json: {e}', ephemeral=True)
+        else:
+            await interaction.followup.send("Whitelist file not found.", ephemeral=True)
+    except Exception as e:
+        await interaction.followup.send(f'Error: {e}', ephemeral=True)
 
 bot.run(BOT_TOKEN)
