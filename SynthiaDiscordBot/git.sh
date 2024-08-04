@@ -31,4 +31,3 @@ while true; do
 
     # Sleep for a while before checking again
     sleep $COOLDOWN_PERIOD
-done
