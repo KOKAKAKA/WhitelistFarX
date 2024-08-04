@@ -7,7 +7,6 @@ from datetime import datetime, timedelta
 import json
 import os
 import time
-import traceback
 import logging
 
 # Load bot token from SavedToken.json
@@ -122,6 +121,7 @@ async def update_role_and_key(user_id: int, remove_role: bool = False):
                         await member.remove_roles(role)
                     else:
                         await member.add_roles(role)
+                    print(f"Role {'removed from' if remove_role else 'added to'} user {user_id}.")
                 except discord.Forbidden:
                     print(f"Insufficient permissions to modify roles for member {user_id}.")
                 except discord.HTTPException as e:
@@ -144,8 +144,11 @@ async def update_role_and_key(user_id: int, remove_role: bool = False):
 def update_whitelist_file(user_id, key, expiration, reason, created):
     try:
         # Load existing data
-        with open('WhitelistedUser.json', 'r') as file:
-            users_data = json.load(file)
+        if os.path.exists('WhitelistedUser.json'):
+            with open('WhitelistedUser.json', 'r') as file:
+                users_data = json.load(file)
+        else:
+            users_data = {}
         
         # Update data
         users_data[user_id] = {
@@ -217,10 +220,15 @@ async def whitelist(interaction: discord.Interaction, user: discord.User, expira
             except discord.Forbidden:
                 await interaction.followup.send("I can't send a message to the user. They might have DMs disabled.", ephemeral=True)
             except Exception as e:
+                print(f"Error sending DM or updating whitelist: {e}")
+                await interaction.followup.send("There was an error processing your request.", ephemeral=True)
         else:
-       print("yey")
+            await interaction.followup.send("Failed to generate key.", ephemeral=True)
     except Exception as e:
-     print("yey")
+        print(f"Unexpected error: {e}")
+        await interaction.followup.send("There was an error processing your request.", ephemeral=True)
+
+bot.run(BOT_TOKEN)
 
 @bot.tree.command(name="profile", description="Get the profile of a whitelisted user")
 @app_commands.describe(user="The user to get the profile of (admin only)")
