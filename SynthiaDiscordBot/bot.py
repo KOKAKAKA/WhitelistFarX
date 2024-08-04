@@ -151,16 +151,16 @@ def update_whitelist_file(user_id: int, key: str, expirati>
             with open(file_path, 'r') as file:
                 users_data = json.load(file)
         except (IOError, json.JSONDecodeError) as e:
-            print(f'Error loading WhitelistedUser.json: {e>
+            print(f'Error loading WhitelistedUser.json: {e}'
             users_data = {}
 
-    print(f"Current users_data before update: {users_data}>
+    print("Current users_data before update: {users_data}"
 
     users_data[str(user_id)] = {
         'key': key,
         'expiration': expiration,
         'reason': reason,
-        'created': request_time.strftime('%Y-%m-%d %H:%M:%>
+        'created': request_time.strftime('%Y-%m-%d %H:%M:%S'
         'status': 'Whitelisted'
     }
 
