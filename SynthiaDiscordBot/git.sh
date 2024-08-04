@@ -19,11 +19,6 @@ while true; do
 
     # Check for changes
     CHANGES=$(git status --porcelain)
-
-    echo "Checking for changes..."
-    echo "Git Status Output:"
-    echo "$CHANGES"
-
     if [ -n "$CHANGES" ]; then
         echo "Changes detected. Running update script..."
 
