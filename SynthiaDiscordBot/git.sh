@@ -39,8 +39,6 @@ while true; do
         # Commit and push changes
         git commit -m "$COMMIT_MESSAGE" > /dev/null 2>&1
         git push origin main > /dev/null 2>&1
-    else
-        echo "No changes detected."
     fi
 
     # Sleep for a while before checking again
