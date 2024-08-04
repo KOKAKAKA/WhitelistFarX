@@ -115,10 +115,15 @@ async def update_role_and_key(user_id: int, remove_role: bool = False):
         if member:
             role = guild.get_role(WHITELIST_ROLE_ID)
             if role:
-                if remove_role:
-                    await member.remove_roles(role)
-                else:
-                    await member.add_roles(role)
+                try:
+                    if remove_role:
+                        await member.remove_roles(role)
+                    else:
+                        await member.add_roles(role)
+                except discord.Forbidden:
+                    print(f"Insufficient permissions to modify roles for member {user_id}.")
+                except discord.HTTPException as e:
+                    print(f"HTTP exception occurred while modifying roles: {e}")
 
     file_path = 'WhitelistedUser.json'
     if os.path.exists(file_path):
