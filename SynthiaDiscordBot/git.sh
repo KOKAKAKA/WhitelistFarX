@@ -1,9 +1,9 @@
 #!/bin/bash
 
-# Directory to monitor (should be the git repository root or include path to the repo)
+# Directory to monitor
 DIR_TO_MONITOR="/storage/emulated/0/download/TermuxS"
 
-# Cooldown period in seconds (1 minute)
+# Cooldown period in seconds (1 second)
 COOLDOWN_PERIOD=1
 
 # Navigate to the monitored directory
@@ -28,6 +28,10 @@ while true; do
         # Commit and push changes
         git commit -m "$COMMIT_MESSAGE"
         git push origin main
+    else
+        echo "No changes detected."
+    fi
 
     # Sleep for a while before checking again
     sleep $COOLDOWN_PERIOD
+done
