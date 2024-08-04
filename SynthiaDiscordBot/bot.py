@@ -7,6 +7,7 @@ from datetime import datetime, timedelta
 import json
 import os
 import time
+import traceback
 
 # Load bot token from SavedToken.json
 def load_token():
@@ -143,35 +144,46 @@ def update_whitelist_file(user_id: int, key: str, expiration: str, reason: str, 
     file_path = 'WhitelistedUser.json'
     users_data = {}
 
-    # Ensure the file exists
-    if not os.path.exists(file_path):
-        with open(file_path, 'w') as file:
-            json.dump(users_data, file, indent=4)
-    else:
-        try:
-            with open(file_path, 'r') as file:
-                users_data = json.load(file)
-        except (IOError, json.JSONDecodeError) as e:
-            print(f'Error loading WhitelistedUser.json: {e}')
-            users_data = {}
-
-    print(f"Current users_data before update: {users_data}")
-
-    users_data[str(user_id)] = {
-        'key': key,
-        'expiration': expiration,
-        'reason': reason,
-        'created': request_time.strftime('%Y-%m-%d %H:%M:%S UTC'),
-        'status': 'Whitelisted'
-    }
+    print(f"Attempting to update file: {file_path}")
 
     try:
-        # Write changes to the file
-        with open(file_path, 'w') as file:
-            json.dump(users_data, file, indent=4)
-        print(f"Updated users_data: {users_data}")
-    except IOError as e:
-        print(f'Error writing WhitelistedUser.json: {e}')
+        # Ensure the file exists
+        if not os.path.exists(file_path):
+            print(f"File not found. Creating new file.")
+            with open(file_path, 'w') as file:
+                json.dump(users_data, file, indent=4)
+        else:
+            try:
+                with open(file_path, 'r') as file:
+                    users_data = json.load(file)
+            except (IOError, json.JSONDecodeError) as e:
+                print(f'Error loading WhitelistedUser.json: {e}')
+                users_data = {}
+
+        print(f"Current users_data before update: {users_data}")
+
+        users_data[str(user_id)] = {
+            'key': key,
+            'expiration': expiration,
+            'reason': reason,
+            'created': request_time.strftime('%Y-%m-%d %H:%M:%S UTC'),
+            'status': 'Whitelisted'
+        }
+
+        try:
+            # Write changes to the file
+            with open(file_path, 'w') as file:
+                json.dump(users_data, file, indent=4)
+            print(f"Updated users_data: {users_data}")
+        except IOError as e:
+            print(f'Error writing WhitelistedUser.json: {e}')
+            print(f"Traceback: {traceback.format_exc()}")
+            raise
+
+    except Exception as e:
+        print(f'Unexpected error: {e}')
+        print(f"Traceback: {traceback.format_exc()}")
+        raise
 
 def is_key_valid(key):
     try:
