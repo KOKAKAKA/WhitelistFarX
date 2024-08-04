@@ -7,6 +7,7 @@ from datetime import datetime, timedelta
 import json
 import os
 import time
+from pathlib import Path
 
 # Load bot token from SavedToken.json
 def load_token():
@@ -214,12 +215,26 @@ async def whitelist(interaction: discord.Interaction, user: discord.User, expira
                 await user.send(embed=embed)
                 print(f"Sent DM to user {user.id} with key {new_key}")
 
-                print(f"Updating whitelist file for user {user.id} with key {new_key}")
-                update_whitelist_file(user.id, new_key, expiration_str, reason, datetime.utcnow())
-                
-                with open('WhitelistedUser.json', 'r') as file:
-                    updated_data = json.load(file)
-                    print(f"WhitelistedUser.json contents: {updated_data}")
+                whitelist_file = Path('WhitelistedUser.json')
+
+                if whitelist_file.exists():
+                    with whitelist_file.open('r') as file:
+                        users_data = json.load(file)
+                else:
+                    users_data = {}
+
+                users_data[user.id] = {
+                    'key': new_key,
+                    'expiration': expiration_str,
+                    'reason': reason,
+                    'created': datetime.utcnow().strftime('%Y-%m-%d %H:%M:%S UTC'),
+                    'status': 'Whitelisted'
+                }
+
+                with whitelist_file.open('w') as file:
+                    json.dump(users_data, file, indent=4)
+
+                print(f"Updated WhitelistedUser.json for user {user.id}")
 
                 await update_role_and_key(user.id)
                 
