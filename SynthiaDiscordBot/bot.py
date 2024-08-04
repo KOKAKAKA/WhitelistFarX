@@ -192,7 +192,7 @@ async def whitelist(interaction: discord.Interaction, user: discord.User, expira
         await interaction.response.send_message("You do not have permission to use this command.", ephemeral=True)
         return
 
-    await interaction.response.defer(Ephemeral = True)  # Use defer to indicate that you are processing
+    await interaction.response.defer()  # Use defer to indicate that you are processing
 
     try:
         url = "http://localhost:18635/generate-key"
