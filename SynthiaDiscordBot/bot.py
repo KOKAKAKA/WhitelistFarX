@@ -142,7 +142,7 @@ def update_whitelist_file(user_id: int, key: str, expiration: str, reason: str, 
     file_path = 'WhitelistedUser.json'
     users_data = {}
 
-    # Ensure the file exists
+    # Ensure the file exists or create an empty file
     if not os.path.exists(file_path):
         with open(file_path, 'w') as file:
             json.dump(users_data, file, indent=4)
@@ -156,6 +156,7 @@ def update_whitelist_file(user_id: int, key: str, expiration: str, reason: str, 
 
     print(f"Current users_data before update: {users_data}")
 
+    # Update the whitelist entry
     users_data[str(user_id)] = {
         'key': key,
         'expiration': expiration,
