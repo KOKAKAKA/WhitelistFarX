@@ -181,6 +181,8 @@ def is_key_valid(key):
         print(f"Error checking key validity: {e}")
         return False
 
+@bot.tree.command(name="whitelist", description="Whitelist a user and generate a key")
+@app_commands.describe(user="The user to whitelist", expiration="Expiration time (e.g., 1d, 2h, 1m, 30s, never)", reason="Reason for whitelisting")
 async def whitelist(interaction: discord.Interaction, user: discord.User, expiration: str = "never", reason: str = "Not Specified"):
     if interaction.guild.id != ALLOWED_GUILD_ID:
         await interaction.response.send_message("This command can only be used in the specified server.", ephemeral=True)
@@ -190,18 +192,15 @@ async def whitelist(interaction: discord.Interaction, user: discord.User, expira
         await interaction.response.send_message("You do not have permission to use this command.", ephemeral=True)
         return
 
-    await interaction.response.defer(ephemeral=True)  # Defer the response
+    await interaction.response.defer()  # Use defer to indicate that you are processing
 
     try:
         url = "http://localhost:18635/generate-key"
         data = run_curl_command(url, method='POST')
-
+        
         if data.get('success'):
             new_key = data['key']
             expiration_str, expiration_date = calculate_expiration(expiration, datetime.utcnow())
-
-            # Update whitelist file
-            update_whitelist_file(user.id, new_key, expiration_str, reason)
 
             embed = discord.Embed(
                 title="Key Service",
@@ -213,6 +212,9 @@ async def whitelist(interaction: discord.Interaction, user: discord.User, expira
 
             try:
                 await user.send(embed=embed)
+                print(f"Updating whitelist file for user {user.id} with key {new_key}")
+                update_whitelist_file(user.id, new_key, expiration_str, reason, datetime.utcnow())
+                
                 success_embed = discord.Embed(
                     title="Whitelisting Success",
                     description=f"**User:**\n{user.name} ({user.id})\n**Status:**\nWhitelisted\n**Key:**\n{new_key}\n**Expiration:**\n{expiration_str}\n**Reason:**\n{reason}",
@@ -244,7 +246,7 @@ async def profile(interaction: discord.Interaction, user: discord.User = None):
         await interaction.response.send_message("You do not have permission to view this profile.", ephemeral=True)
         return
 
-    await interaction.response.send_message("Thinking...", ephemeral=True)
+    await interaction.response.defer()  # Use defer to indicate that you are processing
 
     try:
         file_path = 'WhitelistedUser.json'
