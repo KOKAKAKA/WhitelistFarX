@@ -158,7 +158,8 @@ async def whitelist(interaction: discord.Interaction, user: discord.User, expira
         await interaction.response.send_message("You do not have permission to use this command.", ephemeral=True)
         return
 
-    await interaction.response.send_message("Thinking...", ephemeral=True)
+    # Acknowledge the interaction
+    await interaction.response.defer()
 
     try:
         url = "http://localhost:18635/generate-key"
@@ -205,6 +206,8 @@ async def whitelist(interaction: discord.Interaction, user: discord.User, expira
         await interaction.followup.send(f'Error: {e}', ephemeral=True)
     except Exception as e:
         await interaction.followup.send(f'Unexpected error: {e}', ephemeral=True)
+
+# Similarly update other commands
 
 @bot.tree.command(name="deletekey", description="Delete a key from the server")
 @app_commands.describe(key="The key to delete")
