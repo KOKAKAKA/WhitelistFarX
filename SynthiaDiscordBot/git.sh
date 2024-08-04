@@ -6,11 +6,6 @@ DIR_TO_MONITOR="/storage/emulated/0/download/TermuxS"
 # Cooldown period in seconds (1 minute)
 COOLDOWN_PERIOD=60
 
-# Function to get the current timestamp
-current_timestamp() {
-    date +%s
-}
-
 # Navigate to the monitored directory
 cd "$DIR_TO_MONITOR" || { echo "Directory $DIR_TO_MONITOR not found"; exit 1; }
 
