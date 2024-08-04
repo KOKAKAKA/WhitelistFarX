@@ -310,52 +310,6 @@ async def reset_hwid(interaction: discord.Interaction, user: discord.User):
     except Exception as e:
         await interaction.followup.send(f'An unexpected error occurred: {e}', ephemeral=True)
 
-@bot.tree.command(name="deletekey", description="Delete a key from the server")
-@app_commands.describe(key="The key to delete")
-async def delete_key(interaction: discord.Interaction, key: str):
-    if interaction.guild.id != ALLOWED_GUILD_ID:
-        await interaction.response.send_message("This command can only be used in the specified server.", ephemeral=True)
-        return
-
-    if not is_whitelist_admin(interaction.user):
-        await interaction.response.send_message("You do not have permission to use this command.", ephemeral=True)
-        return
-
-    await interaction.response.send_message("Thinking...", ephemeral=True)
-
-    try:
-        url = "http://localhost:18635/delete-key"
-        data = run_curl_command(url, method='POST', data={"key": key})
-        
-        if data.get('success'):
-            file_path = 'WhitelistedUser.json'
-            if os.path.exists(file_path):
-                try:
-                    with open(file_path, 'r+') as file:
-                        users_data = json.load(file)
-                        users_data = {k: v for k, v in users_data.items() if v['key'] != key}
-                        file.seek(0)
-                        json.dump(users_data, file, indent=4)
-                        file.truncate()
-                except (IOError, json.JSONDecodeError) as e:
-                    print(f'Error handling WhitelistedUser.json: {e}')
-
-            embed = discord.Embed(
-                title="Key Service",
-                description=f"**Status:**\nKey `{key}` has been deleted.",
-                color=discord.Color.blue()
-            )
-            embed.set_footer(text=f"Requested at {datetime.utcnow().strftime('%Y-%m-%d %H:%M:%S')} UTC")
-            embed.set_image(url=images["delete_key"])
-
-            await interaction.followup.send(embed=embed, ephemeral=True)
-        else:
-            await interaction.followup.send(f'Failed to delete the key `{key}`.', ephemeral=True)
-    except ValueError as e:
-        await interaction.followup.send(f'Error: {e}', ephemeral=True)
-    except Exception as e:
-        await interaction.followup.send(f'An unexpected error occurred: {e}', ephemeral=True)
-
 @bot.tree.command(name="profile", description="Get the profile of a whitelisted user")
 @app_commands.describe(user="The user to get the profile of (admin only)")
 async def profile(interaction: discord.Interaction, user: discord.User = None):
