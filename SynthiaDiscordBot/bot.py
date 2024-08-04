@@ -191,12 +191,13 @@ async def whitelist(interaction: discord.Interaction, user: discord.User, expira
         await interaction.response.send_message("You do not have permission to use this command.", ephemeral=True)
         return
 
-    await interaction.response.send_message("Thinking...", ephemeral=True)
+    # Defer the response to give time for processing
+    await interaction.response.defer()
 
     try:
         url = "http://localhost:18635/generate-key"
         data = run_curl_command(url, method='POST')
-        
+
         if data.get('success'):
             new_key = data['key']
             expiration_str, expiration_date = calculate_expiration(expiration, datetime.utcnow())
