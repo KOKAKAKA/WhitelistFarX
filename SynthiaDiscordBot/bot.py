@@ -136,7 +136,7 @@ async def update_role_and_key(user_id: int, remove_role: bool = False):
                     json.dump(users_data, file, indent=4)
                     file.truncate()
         except (IOError, json.JSONDecodeError) as e:
-            print(f'Error handling WhitelistedUser.json: {e}')
+            print('Error handling WhitelistedUser.json: {e}')
 
 def update_whitelist_file(user_id: int, key: str, expirati>
     file_path = 'WhitelistedUser.json'
