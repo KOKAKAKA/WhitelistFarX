@@ -137,12 +137,13 @@ def update_whitelist_file(user_id: int, key: str, expiration: str, reason: str, 
     file_path = 'WhitelistedUser.json'
     users_data = {}
 
-    if os.path.exists(file_path):
-        try:
+    try:
+        if os.path.exists(file_path):
             with open(file_path, 'r') as file:
                 users_data = json.load(file)
-        except (IOError, json.JSONDecodeError) as e:
-            print(f'Error loading WhitelistedUser.json: {e}')
+    except (IOError, json.JSONDecodeError) as e:
+        print(f'Error loading WhitelistedUser.json: {e}')
+        # Optionally, you might want to handle the case where the file does not exist or is corrupted
 
     users_data[str(user_id)] = {
         'key': key,
@@ -157,6 +158,36 @@ def update_whitelist_file(user_id: int, key: str, expiration: str, reason: str, 
             json.dump(users_data, file, indent=4)
     except IOError as e:
         print(f'Error writing WhitelistedUser.json: {e}')
+
+def update_role_and_key(user_id: int, remove_role: bool = False):
+    guild = discord.utils.get(bot.guilds, id=ALLOWED_GUILD_ID)
+    if guild:
+        member = guild.get_member(user_id)
+        if member:
+            role = guild.get_role(WHITELIST_ROLE_ID)
+            if role:
+                try:
+                    if remove_role:
+                        await member.remove_roles(role)
+                    else:
+                        await member.add_roles(role)
+                except discord.Forbidden:
+                    print(f"Insufficient permissions to modify roles for member {user_id}.")
+                except discord.HTTPException as e:
+                    print(f"HTTP exception occurred while modifying roles: {e}")
+
+    file_path = 'WhitelistedUser.json'
+    if os.path.exists(file_path):
+        try:
+            with open(file_path, 'r+') as file:
+                users_data = json.load(file)
+                if str(user_id) in users_data:
+                    del users_data[str(user_id)]
+                    file.seek(0)
+                    json.dump(users_data, file, indent=4)
+                    file.truncate()
+        except (IOError, json.JSONDecodeError) as e:
+            print(f'Error handling WhitelistedUser.json: {e}')
 
 @bot.tree.command(name="whitelist", description="Whitelist a user and generate a key")
 @app_commands.describe(user="The user to whitelist", expiration="Expiration time (e.g., 1d, 2h, 1m, 30s, never)", reason="Reason for whitelisting")
