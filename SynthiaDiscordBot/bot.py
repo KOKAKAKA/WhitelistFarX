@@ -220,15 +220,17 @@ async def whitelist(interaction: discord.Interaction, user: discord.User, expira
                 )
                 success_embed.set_footer(text=f"Requested at {datetime.utcnow().strftime('%Y-%m-%d %H:%M:%S')} UTC")
                 success_embed.set_image(url=images["whitelist"])
-                await interaction.followup.send(embed=success_embed, ephemeral=True)
-            except discord.Forbidden:
-                await interaction.followup.send(f"Unable to send a DM to {user.name}.", ephemeral=True)
+
+                await interaction.edit_original_response(content=None, embed=success_embed)
+
+            except discord.HTTPException as e:
+                await interaction.edit_original_response(content="Failed to send DM to the user. However, the user is whitelisted and the key is generated.", ephemeral=True)
+                print(f"Failed to send DM to user {user.id}: {e}")
         else:
-            await interaction.followup.send('Failed to generate a new key.', ephemeral=True)
-    except ValueError as e:
-        await interaction.followup.send(f'Error: {e}', ephemeral=True)
+            raise Exception("Key generation failed.")
     except Exception as e:
-        await interaction.followup.send(f'An unexpected error occurred: {e}', ephemeral=True)
+        await interaction.edit_original_response(content=f"An error occurred while processing the whitelisting request: {e}", ephemeral=True)
+        print(f"Error in /whitelist command: {e}")
 
 @bot.tree.command(name="deletekey", description="Delete a key from the server")
 @app_commands.describe(key="The key to delete")
