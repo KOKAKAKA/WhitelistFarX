@@ -290,7 +290,7 @@ async def profile(interaction: discord.Interaction, user: discord.User = None):
                     embed.set_image(url=images["profile"])
 
                     class ProfileButtons(View):
-                        @discord.ui.button(label="Reset HWID", style=ButtonStyle.red)
+                        @discord.ui.button(label="Reset HWID", style=ButtonStyle.green)
                         async def reset_hwid_button(self, interaction: Interaction, button: Button):
                             if interaction.user.id != user.id and not is_whitelist_admin(interaction.user):
                                 await interaction.response.send_message("You do not have permission to reset HWID for this user.", ephemeral=True)
