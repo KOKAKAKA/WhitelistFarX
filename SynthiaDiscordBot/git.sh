@@ -13,6 +13,11 @@ while true; do
     # Check for changes
     CHANGES=$(git status --porcelain)
 
+    # Debug output to verify status checking
+    echo "Checking for changes..."
+    echo "Git Status Output:"
+    echo "$CHANGES"
+
     if [ -n "$CHANGES" ]; then
         echo "Changes detected. Running update script..."
 
@@ -25,9 +30,15 @@ while true; do
             COMMIT_MESSAGE+="\n- $STATUS $FILE"
         done
 
+        # Debug output to verify commit message
+        echo "Commit Message:"
+        echo "$COMMIT_MESSAGE"
+
         # Commit and push changes
         git commit -m "$COMMIT_MESSAGE"
         git push origin main
+    else
+        echo "No changes detected."
     fi
 
     # Sleep for a while before checking again
