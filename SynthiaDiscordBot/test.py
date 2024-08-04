@@ -132,13 +132,15 @@ async def update_role_and_key(user_id: int, remove_role: bool = False):
         try:
             with open(file_path, 'r+') as file:
                 users_data = json.load(file)
+                print(f"Users data before removal: {users_data}")
                 if str(user_id) in users_data:
-                    print(f"Removing user {user_id} from whitelist.")
-                    del users_data[str(user_id)]
-                    file.seek(0)
-                    json.dump(users_data, file, indent=4)
-                    file.truncate()
-                    print(f"Updated whitelist file after removal: {users_data}")
+                    if not remove_role:
+                        print(f"Removing user {user_id} from whitelist.")
+                        del users_data[str(user_id)]
+                        file.seek(0)
+                        json.dump(users_data, file, indent=4)
+                        file.truncate()
+                        print(f"Updated whitelist file after removal: {users_data}")
         except (IOError, json.JSONDecodeError) as e:
             print(f'Error handling WhitelistedUser.json: {e}')
 
