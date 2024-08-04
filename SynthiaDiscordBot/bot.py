@@ -219,6 +219,7 @@ async def whitelist(interaction: discord.Interaction, user: discord.User, expira
             except Exception as e:
         else:
     except Exception as e:
+     print("yey")
 
 @bot.tree.command(name="profile", description="Get the profile of a whitelisted user")
 @app_commands.describe(user="The user to get the profile of (admin only)")
