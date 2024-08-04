@@ -182,27 +182,22 @@ def update_whitelist_file(user_id, key, expiration, reason, created):
 @app_commands.describe(user="The user to whitelist", expiration="Expiration time (e.g., 1d, 2h, 1m, 30s, never)", reason="Reason for whitelisting")
 async def whitelist(interaction: discord.Interaction, user: discord.User, expiration: str = "never", reason: str = "Not Specified"):
     try:
-        # Log interaction start
         print(f"Received whitelist command from {interaction.user.name} ({interaction.user.id})")
 
-        # Check if interaction is in the allowed guild
         if interaction.guild.id != ALLOWED_GUILD_ID:
             await interaction.response.send_message("This command can only be used in the specified server.", ephemeral=True)
             return
 
-        # Check if the user has permission
         if not is_whitelist_admin(interaction.user):
             await interaction.response.send_message("You do not have permission to use this command.", ephemeral=True)
             return
 
-        # Defer the response to avoid interaction timeout issue
         await interaction.response.defer(ephemeral=True)
         print("Deferred the interaction response")
 
-        # Perform the whitelisting operation
         url = "http://localhost:18635/generate-key"
         data = run_curl_command(url, method='POST')
-        
+
         if data.get('success'):
             new_key = data['key']
             expiration_str, expiration_date = calculate_expiration(expiration, datetime.utcnow())
@@ -222,7 +217,6 @@ async def whitelist(interaction: discord.Interaction, user: discord.User, expira
                 print(f"Updating whitelist file for user {user.id} with key {new_key}")
                 update_whitelist_file(user.id, new_key, expiration_str, reason, datetime.utcnow())
                 
-                # Verify the file contents after update
                 with open('WhitelistedUser.json', 'r') as file:
                     updated_data = json.load(file)
                     print(f"WhitelistedUser.json contents: {updated_data}")
