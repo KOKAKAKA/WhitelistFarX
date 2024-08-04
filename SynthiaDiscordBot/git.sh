@@ -19,11 +19,16 @@ while true; do
 
     # Check for changes
     CHANGES=$(git status --porcelain)
+
+    echo "Checking for changes..."
+    echo "Git Status Output:"
+    echo "$CHANGES"
+
     if [ -n "$CHANGES" ]; then
         echo "Changes detected. Running update script..."
 
         # Stage changes
-        git add .
+        git add . > /dev/null 2>&1
 
         # Prepare the commit message with a summary of changes
         COMMIT_MESSAGE="Automated commit: Changes detected"
@@ -36,8 +41,10 @@ while true; do
         echo "$COMMIT_MESSAGE"
 
         # Commit and push changes
-        git commit -m "$COMMIT_MESSAGE"
-        git push origin main
+        git commit -m "$COMMIT_MESSAGE" > /dev/null 2>&1
+        git push origin main > /dev/null 2>&1
+    else
+        echo "No changes detected."
     fi
 
     # Sleep for a while before checking again
