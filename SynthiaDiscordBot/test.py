@@ -117,8 +117,10 @@ async def update_role_and_key(user_id: int, remove_role: bool = False):
             if role:
                 try:
                     if remove_role:
+                        print(f"Removing role {role.id} from member {user_id}.")
                         await member.remove_roles(role)
                     else:
+                        print(f"Adding role {role.id} to member {user_id}.")
                         await member.add_roles(role)
                 except discord.Forbidden:
                     print(f"Insufficient permissions to modify roles for member {user_id}.")
@@ -131,11 +133,12 @@ async def update_role_and_key(user_id: int, remove_role: bool = False):
             with open(file_path, 'r+') as file:
                 users_data = json.load(file)
                 if str(user_id) in users_data:
+                    print(f"Removing user {user_id} from whitelist.")
                     del users_data[str(user_id)]
                     file.seek(0)
                     json.dump(users_data, file, indent=4)
                     file.truncate()
-                    print(f"Removed user {user_id} from whitelist.")
+                    print(f"Updated whitelist file after removal: {users_data}")
         except (IOError, json.JSONDecodeError) as e:
             print(f'Error handling WhitelistedUser.json: {e}')
 
