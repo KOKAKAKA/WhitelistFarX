@@ -138,7 +138,7 @@ async def update_role_and_key(user_id: int, remove_role: bool = False):
         except (IOError, json.JSONDecodeError) as e:
             print(f'Error handling WhitelistedUser.json: {e}')
 
-def update_whitelist_file(user_id: int, key: str, expiration: str, reason: str, request_time: datetime):
+def update_whitelist_file(user_id: int, key: str, expirati>
     file_path = 'WhitelistedUser.json'
     users_data = {}
 
@@ -151,16 +151,16 @@ def update_whitelist_file(user_id: int, key: str, expiration: str, reason: str, 
             with open(file_path, 'r') as file:
                 users_data = json.load(file)
         except (IOError, json.JSONDecodeError) as e:
-            print(f'Error loading WhitelistedUser.json: {e}')
+            print(f'Error loading WhitelistedUser.json: {e>
             users_data = {}
 
-    print(f"Current users_data before update: {users_data}")
+    print(f"Current users_data before update: {users_data}>
 
     users_data[str(user_id)] = {
         'key': key,
         'expiration': expiration,
         'reason': reason,
-        'created': request_time.strftime('%Y-%m-%d %H:%M:%S UTC'),
+        'created': request_time.strftime('%Y-%m-%d %H:%M:%>
         'status': 'Whitelisted'
     }
 
@@ -168,7 +168,6 @@ def update_whitelist_file(user_id: int, key: str, expiration: str, reason: str, 
         # Write changes to the file
         with open(file_path, 'w') as file:
             json.dump(users_data, file, indent=4)
-        print(f"Updated users_data: {users_data}")
     except IOError as e:
         print(f'Error writing WhitelistedUser.json: {e}')
 
