@@ -356,40 +356,6 @@ async def delete_key(interaction: discord.Interaction, key: str):
     except Exception as e:
         await interaction.followup.send(f'An unexpected error occurred: {e}', ephemeral=True)
 
-@bot.tree.command(name="reset-hwid", description="Reset HWID for a user")
-@app_commands.describe(user="The user to reset HWID")
-async def reset_hwid(interaction: discord.Interaction, user: discord.User):
-    if interaction.guild.id != ALLOWED_GUILD_ID:
-        await interaction.response.send_message("This command can only be used in the specified server.", ephemeral=True)
-        return
-
-    if not is_whitelist_admin(interaction.user):
-        await interaction.response.send_message("You do not have permission to use this command.", ephemeral=True)
-        return
-
-    await interaction.response.send_message("Thinking...", ephemeral=True)
-
-    try:
-        url = "http://localhost:18635/reset-hwid"
-        data = run_curl_command(url, method='POST', data={"user_id": user.id})
-        
-        if data.get('success'):
-            embed = discord.Embed(
-                title="HWID Reset",
-                description=f"**User:**\n{user.name} ({user.id})\n**Status:**\nHWID reset successfully.",
-                color=discord.Color.blue()
-            )
-            embed.set_footer(text=f"Requested at {datetime.utcnow().strftime('%Y-%m-%d %H:%M:%S')} UTC")
-            embed.set_image(url=images["reset_hwid"])
-
-            await interaction.followup.send(embed=embed, ephemeral=True)
-        else:
-            await interaction.followup.send(f'Failed to reset HWID for user `{user.name}`.', ephemeral=True)
-    except ValueError as e:
-        await interaction.followup.send(f'Error: {e}', ephemeral=True)
-    except Exception as e:
-        await interaction.followup.send(f'An unexpected error occurred: {e}', ephemeral=True)
-
 @bot.tree.command(name="profile", description="Get the profile of a whitelisted user")
 @app_commands.describe(user="The user to get the profile of (admin only)")
 async def profile(interaction: discord.Interaction, user: discord.User = None):
