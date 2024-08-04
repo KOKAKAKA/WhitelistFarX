@@ -183,7 +183,8 @@ async def whitelist(interaction: discord.Interaction, user: discord.User, expira
         await interaction.response.send_message("You do not have permission to use this command.", ephemeral=True)
         return
 
-    await interaction.response.send_message("Thinking...", ephemeral=True)
+    # Defer the response to avoid the interaction timeout issue
+    await interaction.response.defer(ephemeral=True)
 
     try:
         url = "http://localhost:18635/generate-key"
@@ -221,15 +222,15 @@ async def whitelist(interaction: discord.Interaction, user: discord.User, expira
                 success_embed.set_footer(text=f"Requested at {datetime.utcnow().strftime('%Y-%m-%d %H:%M:%S')} UTC")
                 success_embed.set_image(url=images["whitelist"])
 
-                await interaction.edit_original_response(content=None, embed=success_embed)
+                await interaction.followup.send(embed=success_embed)
 
             except discord.HTTPException as e:
-                await interaction.edit_original_response(content="Failed to send DM to the user. However, the user is whitelisted and the key is generated.", ephemeral=True)
+                await interaction.followup.send(content="Failed to send DM to the user. However, the user is whitelisted and the key is generated.", ephemeral=True)
                 print(f"Failed to send DM to user {user.id}: {e}")
         else:
             raise Exception("Key generation failed.")
     except Exception as e:
-        await interaction.edit_original_response(content=f"An error occurred while processing the whitelisting request: {e}", ephemeral=True)
+        await interaction.followup.send(content=f"An error occurred while processing the whitelisting request: {e}", ephemeral=True)
         print(f"Error in /whitelist command: {e}")
 
 @bot.tree.command(name="deletekey", description="Delete a key from the server")
