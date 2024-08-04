@@ -169,7 +169,7 @@ def update_whitelist_file(user_id: int, key: str, expirati>
         with open(file_path, 'w') as file:
             json.dump(users_data, file, indent=4)
     except IOError as e:
-        print(f'Error writing WhitelistedUser.json: {e}')
+        print('Error writing WhitelistedUser.json: {e}')
 
 def is_key_valid(key):
     try:
