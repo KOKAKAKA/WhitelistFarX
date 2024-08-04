@@ -218,6 +218,7 @@ async def whitelist(interaction: discord.Interaction, user: discord.User, expira
                 await interaction.followup.send("I can't send a message to the user. They might have DMs disabled.", ephemeral=True)
             except Exception as e:
         else:
+       print("yey")
     except Exception as e:
      print("yey")
 
