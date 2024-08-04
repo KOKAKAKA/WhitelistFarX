@@ -138,11 +138,15 @@ async def update_role_and_key(user_id: int, remove_role: bool = False):
         except (IOError, json.JSONDecodeError) as e:
             print(f'Error handling WhitelistedUser.json: {e}')
 
+import json
+import os
+from datetime import datetime
+
 def update_whitelist_file(user_id: int, key: str, expiration: str, reason: str, request_time: datetime):
     file_path = 'WhitelistedUser.json'
     users_data = {}
 
-    # Initialize the file if it doesn't exist or handle errors
+    # Ensure the file exists
     if not os.path.exists(file_path):
         with open(file_path, 'w') as file:
             json.dump(users_data, file, indent=4)
@@ -165,12 +169,15 @@ def update_whitelist_file(user_id: int, key: str, expiration: str, reason: str, 
     }
 
     try:
+        # Write changes to the file
         with open(file_path, 'w') as file:
             json.dump(users_data, file, indent=4)
+        print(f"Updated users_data: {users_data}")
     except IOError as e:
         print(f'Error writing WhitelistedUser.json: {e}')
 
-    print(f"Updated users_data: {users_data}")
+# Test the function
+update_whitelist_file(1018400148923101264, '3f71c9dc-bd44-4448-938f-f05d825ab365', 'Never', 'Not Specified', datetime.utcnow())
 
 @bot.tree.command(name="whitelist", description="Whitelist a user and generate a key")
 @app_commands.describe(user="The user to whitelist", expiration="Expiration time (e.g., 1d, 2h, 1m, 30s, never)", reason="Reason for whitelisting")
