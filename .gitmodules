@@ -1,0 +1,3 @@
+[submodule "SynthiaObfuscationSystem/Prometheus"]
+	path = SynthiaObfuscationSystem/Prometheus
+	url = https://github.com/prometheus-lua/Prometheus
