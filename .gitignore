@@ -1,0 +1,6 @@
+# Ignore sensitive files
+SavedToken.json
+.env
+secret-config.yml
+SavedToken.json
+stamp.txt
