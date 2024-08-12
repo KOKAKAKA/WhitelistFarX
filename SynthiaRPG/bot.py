@@ -1,8 +1,18 @@
+import os
 import discord
 from discord.ext import commands
 import json
 import time
 import asyncio
+from Asset.level import check_level_up
+
+async def load_commands():
+    command_dir = 'Commands'
+    for filename in os.listdir(command_dir):
+        if filename.endswith('.py') and filename != 'level.py':
+            await bot.load_extension(f'Commands.{filename[:-3]}')
+
+# The rest of your bot.py remains the same
 
 # Initialize the bot with slash commands only
 intents = discord.Intents.default()
@@ -97,8 +107,15 @@ async def help_command(interaction: discord.Interaction):
     view = HelpButton(bot, interaction, command_list)
     await interaction.response.send_message(embed=view.get_embed(), view=view, ephemeral=True)
 
+# Load all command files from the 'Commands' directory
+async def load_commands():
+    for filename in os.listdir('./Commands'):
+        if filename.endswith('.py'):
+            await bot.load_extension(f'Commands.{filename[:-3]}')
+
 # Load and run the bot
 async def main():
+    await load_commands()  # Load the commands before starting the bot
     await bot.start(load_token())
 
 asyncio.run(main())

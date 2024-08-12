@@ -1,0 +1,12 @@
+{
+    "name": "leneksnbs",
+    "money": 100,
+    "experience": 0,
+    "level": 1,
+    "job": "Tank",
+    "health": 150,
+    "mana": 50,
+    "strength": 20,
+    "agility": 15,
+    "magic": 10
+}

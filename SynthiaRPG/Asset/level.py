@@ -17,8 +17,9 @@ def check_level_up(player):
         if level < 100:
             player['level'] = level
             player['experience'] = experience
-            player['stat_points'] += 6  # Points to distribute when leveling up
+            player['stat_points'] += 6  # Points to distribute per level up
         else:
-            player['experience'] = level_config[str(level)]  # Cap experience at max level
+            player['experience'] = level_config[str(level)]
+            break
 
     return player
