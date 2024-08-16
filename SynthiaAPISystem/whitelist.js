@@ -12,7 +12,6 @@ const os = require('os');
 
 const app = express();
 const port = 18635;
-const storedKeyPath = path.join(__dirname, 'StoredKey.json');
 const cache = new NodeCache({ stdTTL: 60, checkperiod: 120 });
 const lock = new AsyncLock();
 const restartScriptPath = 'restart.js';
@@ -23,10 +22,10 @@ let serverReady = false;
 app.use(express.json());
 app.use(morgan('combined'));
 
-// Rate limiting middleware to prevent abuse
+// Rate limiting middleware to allow 100 requests per second
 const limiter = rateLimit({
-  windowMs: 15 * 60 * 1000, // 15 minutes
-  max: 100, // limit each IP to 100 requests per windowMs
+  windowMs: 60 * 1000, // 1 minute
+  max: 6000, // limit each IP to 6000 requests per windowMs
 });
 app.use(limiter);
 
@@ -52,6 +51,7 @@ async function readJson(filePath) {
 async function writeJson(filePath, data) {
   return lock.acquire('fileLock', async () => {
     try {
+      await fs.mkdir(path.dirname(filePath), { recursive: true }); // Ensure directory exists
       await fs.writeFile(filePath, JSON.stringify(data, null, 2));
       cache.set(filePath, data);
     } catch (error) {
@@ -69,24 +69,28 @@ app.use((req, res, next) => {
   }
 });
 
-// Endpoint to generate a new key
-app.post('/generate-key', async (req, res) => {
+// Endpoint to generate a new key for a specific user
+app.post('/generate-key/:username', async (req, res) => {
+  const { username } = req.params;
   try {
     const newKey = uuidv4();
-    const storedKeys = await readJson(storedKeyPath);
+    const userKeyPath = path.join(__dirname, 'StoredKey', username, 'keys.json');
+    const storedKeys = await readJson(userKeyPath);
     storedKeys[newKey] = 'Nil';
-    await writeJson(storedKeyPath, storedKeys);
+    await writeJson(userKeyPath, storedKeys);
     res.json({ success: true, key: newKey });
   } catch (error) {
     res.status(500).json({ success: false, message: error.message });
   }
 });
 
-// Endpoint to update HWID for a given key
-app.get('/update-hwid', async (req, res) => {
+// Endpoint to update HWID for a specific user and key
+app.get('/update-hwid/:username', async (req, res) => {
+  const { username } = req.params;
   const { key, hwid } = req.query;
   try {
-    const storedKeys = await readJson(storedKeyPath);
+    const userKeyPath = path.join(__dirname, 'StoredKey', username, 'keys.json');
+    const storedKeys = await readJson(userKeyPath);
     if (!storedKeys[key]) {
       return res.status(400).json({ success: false, message: 'Key not found' });
     }
@@ -94,49 +98,55 @@ app.get('/update-hwid', async (req, res) => {
       return res.status(400).json({ success: false, message: 'HWID already set' });
     }
     storedKeys[key] = hwid;
-    await writeJson(storedKeyPath, storedKeys);
+    await writeJson(userKeyPath, storedKeys);
     res.json({ success: true, message: 'HWID updated successfully' });
   } catch (error) {
     res.status(500).json({ success: false, message: error.message });
   }
 });
 
-// Endpoint to reset HWID for a given key
-app.post('/reset-hwid', async (req, res) => {
+// Endpoint to reset HWID for a given user and key
+app.post('/reset-hwid/:username', async (req, res) => {
+  const { username } = req.params;
   const { key } = req.body;
   try {
-    const storedKeys = await readJson(storedKeyPath);
+    const userKeyPath = path.join(__dirname, 'StoredKey', username, 'keys.json');
+    const storedKeys = await readJson(userKeyPath);
     if (!storedKeys[key]) {
       return res.status(400).json({ success: false, message: 'Key not found' });
     }
     storedKeys[key] = 'Nil';
-    await writeJson(storedKeyPath, storedKeys);
+    await writeJson(userKeyPath, storedKeys);
     res.json({ success: true, message: 'HWID reset successfully' });
   } catch (error) {
     res.status(500).json({ success: false, message: error.message });
   }
 });
 
-// Endpoint to delete a key
-app.post('/delete-key', async (req, res) => {
+// Endpoint to delete a key for a specific user
+app.post('/delete-key/:username', async (req, res) => {
+  const { username } = req.params;
   const { key } = req.body;
   try {
-    const storedKeys = await readJson(storedKeyPath);
+    const userKeyPath = path.join(__dirname, 'StoredKey', username, 'keys.json');
+    const storedKeys = await readJson(userKeyPath);
     if (!storedKeys[key]) {
       return res.status(400).json({ success: false, message: 'Key not found' });
     }
     delete storedKeys[key];
-    await writeJson(storedKeyPath, storedKeys);
+    await writeJson(userKeyPath, storedKeys);
     res.json({ success: true, message: 'Key deleted successfully' });
   } catch (error) {
     res.status(500).json({ success: false, message: error.message });
   }
 });
 
-// Endpoint to fetch all keys and HWIDs as Lua table string
-app.get('/fetch-keys-hwids', async (req, res) => {
+// Endpoint to fetch all keys and HWIDs for a specific user as Lua table string
+app.get('/fetch-keys-hwids/:username', async (req, res) => {
+  const { username } = req.params;
   try {
-    const storedKeys = await readJson(storedKeyPath);
+    const userKeyPath = path.join(__dirname, 'StoredKey', username, 'keys.json');
+    const storedKeys = await readJson(userKeyPath);
     const luaTableString = "return " + JSON.stringify(storedKeys).replace(/"(\w+)":/g, '$1:').replace(/"/g, "'");
     res.setHeader('Cache-Control', 'no-store');
     res.setHeader('Pragma', 'no-cache');
@@ -147,10 +157,12 @@ app.get('/fetch-keys-hwids', async (req, res) => {
   }
 });
 
-// Endpoint to fetch keys and HWIDs as a Lua script
-app.get('/KeyRaw', async (req, res) => {
+// Endpoint to fetch keys and HWIDs as a Lua script for a specific user
+app.get('/KeyRaw/:username', async (req, res) => {
+  const { username } = req.params;
   try {
-    const storedKeys = await readJson(storedKeyPath);
+    const userKeyPath = path.join(__dirname, 'StoredKey', username, 'keys.json');
+    const storedKeys = await readJson(userKeyPath);
     let luaTableString = "local KeysAndHwid = {\n";
     for (const [key, hwid] of Object.entries(storedKeys)) {
       luaTableString += `    ["${key}"] = "${hwid}",\n`;
@@ -169,8 +181,6 @@ app.get('/KeyRaw', async (req, res) => {
 // Function to initialize the server
 async function initializeServer() {
   try {
-    // Perform any necessary initialization tasks here
-    await readJson(storedKeyPath); // Ensure the file is read and cached
     serverReady = true;
     console.log('Server is fully initialized and ready to handle requests.');
   } catch (error) {
@@ -181,10 +191,7 @@ async function initializeServer() {
 // Function to restart the server
 function restartServer() {
   console.log('Restarting server.');
-
-  // Exit the process after a short delay to ensure proper shutdown
   setTimeout(() => {
-    // Run the restart script
     exec(`node ${restartScriptPath}`, (error, stdout, stderr) => {
       if (error) {
         console.error(`Error executing restart script: ${error.message}`);
@@ -195,11 +202,10 @@ function restartServer() {
       }
       console.log(`Restart script stdout: ${stdout}`);
     });
-
-    // Ensure process exits after the script is started
     process.exit();
   }, 1000); // 1-second delay
 }
+
 // Function to clear cache
 function clearCache() {
   console.log('Clearing cache');
@@ -223,12 +229,10 @@ function monitorServer() {
       clearCache();
     }
 
-    // Optionally, restart the server based on certain conditions
     if (process.uptime() > 1 * 30 * 60) {
       console.log('Uptime exceeded 24 hours, restarting server.');
       restartServer();
     }
-
   }, 5 * 60 * 1000); // Every 10 minutes
 }
 
