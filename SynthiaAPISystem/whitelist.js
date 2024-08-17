@@ -18,6 +18,8 @@ const restartScriptPath = 'restart.js';
 
 let serverReady = false;
 
+app.set('trust proxy', 1);
+
 // Middleware for JSON parsing and logging
 app.use(express.json());
 app.use(morgan('combined'));
