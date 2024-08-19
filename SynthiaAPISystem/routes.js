@@ -2,8 +2,21 @@ const express = require('express');
 const bcrypt = require('bcryptjs');
 const { queryDatabase } = require('./db');
 const { v4: uuidv4 } = require('uuid');
+const rateLimit = require('express-rate-limit'); // Rate limiting library
+const helmet = require('helmet'); // Security headers library
 
 const router = express.Router();
+
+// Middleware to apply security headers
+router.use(helmet());
+
+// Rate limiter to prevent brute force attacks
+const apiLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000, // 15 minutes
+  max: 100, // limit each IP to 100 requests per windowMs
+  message: "Too many requests from this IP, please try again later."
+});
+router.use(apiLimiter);
 
 // Middleware to validate user and password
 const authenticateUser = async (req, res, next) => {
@@ -87,6 +100,11 @@ const validateUserAndPassword = async (req, res, next) => {
   }
 };
 
+// Helper function to validate strings
+const validateString = (str, maxLength) => {
+  return typeof str === 'string' && str.length <= maxLength;
+};
+
 // Generate a new key for a specific user
 router.post('/generate-key/:username/:password', validateUserAndPassword, async (req, res) => {
   const { username } = req.params;
@@ -108,6 +126,12 @@ router.post('/generate-key/:username/:password', validateUserAndPassword, async 
 router.get('/update-hwid/:username/:password', validateUserAndPassword, async (req, res) => {
   const { username } = req.params;
   const { key, hwid } = req.query;
+
+  // Validate HWID
+  if (!validateString(hwid, 255)) {
+    return res.status(400).json({ success: false, message: 'Invalid HWID' });
+  }
+
   try {
     const findQuery = `SELECT hwid FROM user_keys WHERE username = $1 AND key = $2;`;
     const result = await queryDatabase(findQuery, [username, key]);
@@ -136,6 +160,12 @@ router.get('/update-hwid/:username/:password', validateUserAndPassword, async (r
 router.post('/reset-hwid/:username/:password', validateUserAndPassword, async (req, res) => {
   const { username } = req.params;
   const { key } = req.body;
+
+  // Validate key
+  if (!validateString(key, 255)) {
+    return res.status(400).json({ success: false, message: 'Invalid key' });
+  }
+
   try {
     const updateQuery = `
       UPDATE user_keys 
@@ -158,6 +188,12 @@ router.post('/reset-hwid/:username/:password', validateUserAndPassword, async (r
 router.post('/delete-key/:username/:password', validateUserAndPassword, async (req, res) => {
   const { username } = req.params;
   const { key } = req.body;
+
+  // Validate key
+  if (!validateString(key, 255)) {
+    return res.status(400).json({ success: false, message: 'Invalid key' });
+  }
+
   try {
     const deleteQuery = `
       DELETE FROM user_keys 

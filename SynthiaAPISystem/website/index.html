@@ -1,0 +1,123 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SynthList Documentation</title>
+    <link rel="stylesheet" href="style.css">
+    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;600&display=swap">
+</head>
+<body>
+    <header>
+        <h1>SynthList Documentation</h1>
+    </header>
+    <nav>
+        <a href="#overview" class="tab-button">Overview</a>
+        <a href="#key-features" class="tab-button">Key Features</a>
+        <a href="#configuration" class="tab-button">Configuration</a>
+        <a href="#how-it-works" class="tab-button">How It Works</a>
+        <a href="#example-usage" class="tab-button">Example Usage</a>
+        <a href="#troubleshooting" class="tab-button">Troubleshooting</a>
+        <a href="#summary" class="tab-button">Summary</a>
+    </nav>
+    <div class="container">
+        <section id="overview" class="tab-content">
+            <h2>Overview</h2>
+            <p>SynthList is a Roblox script designed for secure key-based authentication and Lua script execution. It includes features for HWID (Hardware ID) validation, local key storage, customizable notifications, and enhanced debugging.</p>
+            <button class="close-btn" onclick="closeSection(this)">×</button>
+        </section>
+        <section id="key-features" class="tab-content">
+            <h2>Key Features</h2>
+            <ul>
+                <li><strong>Key-Based Authentication:</strong> Requires a valid key to execute the script.</li>
+                <li><strong>HWID Validation:</strong> Checks and optionally updates the HWID to prevent unauthorized access.</li>
+                <li><strong>Local Key Storage:</strong> Saves keys locally to avoid re-entry.</li>
+                <li><strong>Customizable Notifications:</strong> Allows customization or disabling of notifications.</li>
+                <li><strong>Debug Mode:</strong> Provides additional logging for debugging purposes.</li>
+                <li><strong>Flexible Settings:</strong> Features such as HWID updates and notifications can be toggled.</li>
+            </ul>
+            <button class="close-btn" onclick="closeSection(this)">×</button>
+        </section>
+        <section id="configuration" class="tab-content">
+            <h2>Configuration</h2>
+            <h3>Required Global Variables</h3>
+            <ul>
+                <li><code>_G.USERNAME</code>: Username for API access.</li>
+                <li><code>_G.PASSWORD</code>: Password for secure API access.</li>
+                <li><code>_G.KEY</code>: Key entered by the user.</li>
+                <li><code>_G.SCRIPT</code>: Lua script to be executed upon successful authentication.</li>
+            </ul>
+            <h3>Optional Global Variables</h3>
+            <ul>
+                <li><code>_G.FILENAME</code>: Custom filename for saving the key locally (default is "Saved_<USERNAME>_Key.json").</li>
+                <li><code>_G.SAVEKEY</code>: Set to true to enable saving the key locally (default is true).</li>
+                <li><code>_G.UPDATEHWID</code>: Set to false to disable HWID updates (default is true).</li>
+                <li><code>_G.NOTIFY_ON_SUCCESS</code>: Set to false to disable success notifications (default is true).</li>
+                <li><code>_G.NOTIFY_ON_ERROR</code>: Set to false to disable error notifications (default is true).</li>
+                <li><code>_G.CUSTOM_NOTIFY</code>: Custom function to handle notifications.</li>
+                <li><code>_G.DEBUG_MODE</code>: Set to true to enable debug logging (default is false).</li>
+            </ul>
+            <button class="close-btn" onclick="closeSection(this)">×</button>
+        </section>
+        <section id="how-it-works" class="tab-content">
+            <h2>How It Works</h2>
+            <ul>
+                <li><strong>Fetching Keys and HWIDs:</strong> The script requests keys and HWIDs from the server and parses the response to validate the user.</li>
+                <li><strong>HWID Validation and Update:</strong> Checks if the HWID associated with the key is valid and updates it if necessary, based on the <code>_G.UPDATEHWID</code> setting.</li>
+                <li><strong>Key Storage:</strong> Saves, loads, and deletes the key locally based on the settings in <code>_G.SAVEKEY</code>.</li>
+                <li><strong>Notifications:</strong> Displays notifications based on user preferences. Custom notification functions can be provided through <code>_G.CUSTOM_NOTIFY</code>.</li>
+                <li><strong>Script Execution:</strong> Executes the Lua script specified in <code>_G.SCRIPT</code> after validating the key and HWID.</li>
+                <li><strong>Debug Logging:</strong> If enabled by <code>_G.DEBUG_MODE</code>, logs additional debug information for troubleshooting.</li>
+            </ul>
+            <button class="close-btn" onclick="closeSection(this)">×</button>
+        </section>
+        <section id="example-usage" class="tab-content">
+            <h2>Example Usage</h2>
+            <li><pre><code>_G.USERNAME = "yourUsername"
+_G.PASSWORD = "yourPassword"
+_G.KEY = "yourKey"
+_G.SCRIPT = "print('Hello, world!')"
+_G.FILENAME = "MyCustomKey.json"
+_G.UPDATEHWID = true
+_G.NOTIFY_ON_SUCCESS = true
+_G.NOTIFY_ON_ERROR = true
+_G.DEBUG_MODE = true  -- Enable debug logging
+-- Custom notification function
+_G.CUSTOM_NOTIFY = function(title, text)
+    print("Custom Notification:", title, text)
+end
+</li></pre></code>
+            <button class="close-btn" onclick="closeSection(this)">×</button>
+        </section>
+        <section id="troubleshooting" class="tab-content">
+            <h2>Troubleshooting</h2>
+            <div class="normal">
+                <strong>Issue:</strong> Script fails to authenticate.<br>
+                <strong>Solution:</strong> Verify that the username, password, and key are correctly entered and that the server is reachable.
+            </div>
+            <div class="normal">
+                <strong>Issue:</strong> HWID update not working.<br>
+                <strong>Solution:</strong> Ensure <code>_G.UPDATEHWID</code> is set to true and that the server accepts HWID updates.
+            </div>
+            <div class="normal">
+                <strong>Issue:</strong> Notifications not appearing.<br>
+                <strong>Solution:</strong> Check if <code>_G.NOTIFY_ON_SUCCESS</code> and <code>_G.NOTIFY_ON_ERROR</code> are enabled and ensure the <code>CUSTOM_NOTIFY</code> function is properly defined.
+            </div>
+            <div class="normal">
+                <strong>Issue:</strong> Debug information not showing.<br>
+                <strong>Solution:</strong> Ensure <code>_G.DEBUG_MODE</code> is set to true for additional logging.
+            </div>
+            <button class="close-btn" onclick="closeSection(this)">×</button>
+        </section>
+        <section id="summary" class="tab-content">
+            <h2>Summary</h2>
+            <ul><li>SynthList provides a secure and customizable solution for key-based authentication in Roblox. By adjusting the global variables, users can tailor the script to their needs, ensuring a flexible and efficient experience.</ul></li>
+            <button class="close-btn" onclick="closeSection(this)">×</button>
+        </section>
+    </div>
+    <footer>
+        <p>&copy; 2024 SynthList Documentation. All rights reserved.</p>
+    </footer>
+    <script src="script.js"></script>
+</body>
+</html>

@@ -9,16 +9,16 @@ const port = 18635;
 
 app.set('trust proxy', 1);
 
-// Middleware for JSON parsing and logging
-app.use(express.json());
-app.use(morgan('combined'));
-
 // Rate limiting middleware
 const limiter = rateLimit({
   windowMs: 60 * 1000, // 1 minute
   max: 6000, // limit each IP to 6000 requests per windowMs
 });
 app.use(limiter);
+
+// Middleware for JSON parsing and logging
+app.use(express.json());
+app.use(morgan('combined'));
 
 // Middleware for server readiness
 app.use(checkServerReady);
