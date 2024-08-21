@@ -10,13 +10,6 @@ const router = express.Router();
 // Middleware: Security Headers
 router.use(helmet());
 
-// Middleware: Rate Limiting
-router.use(rateLimit({
-  windowMs: 15 * 60 * 1000, // 15 minutes
-  max: 100, // 100 requests per IP
-  message: "Too many requests, please try again later."
-}));
-
 // Middleware: User Authentication
 const authenticateUser = async (req, res, next) => {
   const { username, password } = req.params;
