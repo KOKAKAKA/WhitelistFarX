@@ -144,7 +144,7 @@ router.get('/fetch-keys-hwids/:username/:password', authenticateUser, async (req
 
   try {
     const query = `SELECT key, hwid FROM user_keys WHERE username = $1;`;
-    const storedKeys = await queryDatabase(query, [username]);
+    const storedKeys = await queryDatabase(query, [username], `fetch-keys-${username}`);
 
     const luaTableString = "return " + JSON.stringify(
       Object.fromEntries(storedKeys.map(row => [row.key, row.hwid]))
