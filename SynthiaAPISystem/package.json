@@ -14,6 +14,7 @@
     "async-lock": "^1.4.1",
     "axios": "^1.7.3",
     "bcryptjs": "^2.4.3",
+    "compression": "^1.7.4",
     "cookie-parser": "^1.4.6",
     "cors": "^2.8.5",
     "csurf": "^1.10.0",
@@ -31,8 +32,11 @@
     "node-cache": "^5.1.2",
     "pbkdf2": "^3.1.2",
     "pg": "^8.12.0",
+    "pg-cursor": "^2.11.0",
     "redis": "^4.7.0",
     "sequelize": "^6.37.3",
+    "stream": "^0.0.3",
+    "util": "^0.12.5",
     "uuid": "^10.0.0",
     "validator": "^13.12.0"
   }
